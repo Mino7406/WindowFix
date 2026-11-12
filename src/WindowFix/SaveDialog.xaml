@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="clr-namespace:WindowFix.Controls"
         Title="지금 배치 저장" FontSize="13" Width="980" Height="560" MinWidth="720" MinHeight="420"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="#F4F5F7">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="#F4F5F7"
+        Icon="pack://application:,,,/Assets/WindowFix.ico">
     <DockPanel Margin="12">
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
             <DockPanel>

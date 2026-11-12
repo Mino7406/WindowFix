@@ -1,0 +1,11 @@
+<Window x:Class="WindowFix.FloatingLockButton"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WindowFix 고정 버튼" Width="22" Height="56"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="NoResize"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" Opacity="0.45" Cursor="Hand">
+    <Border x:Name="Tab" Background="#3B5BDB" CornerRadius="9,0,0,9" BorderBrush="#40FFFFFF" BorderThickness="1">
+        <TextBlock x:Name="Glyph" Text="🔒" FontFamily="Segoe UI Emoji" FontSize="12"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Border>
+</Window>

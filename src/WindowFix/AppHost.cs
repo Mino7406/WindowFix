@@ -20,6 +20,8 @@ public sealed class AppHost : IDisposable
     private readonly WinEventLockService _lockService;
     private SingleInstance? _instance;
     private MainWindow? _main;
+    private FloatingLockButton? _button;
+    private Tray.TrayIcon? _tray;
 
     public AppHost(App app)
     {
@@ -54,6 +56,10 @@ public sealed class AppHost : IDisposable
         }
 
         Config = _store.Load();
+        _tray = new Tray.TrayIcon(this);
+        Lock.StateChanged += _ => UpdateOverlays();
+        ConfigChanged += UpdateOverlays;
+        UpdateOverlays();
 
         if (args.Contains(StartupRegistration.StartupArg, StringComparer.OrdinalIgnoreCase))
         {
@@ -131,6 +137,28 @@ public sealed class AppHost : IDisposable
         ConfigChanged?.Invoke();
     }
 
+    /// <summary>Floating lock button: only while the lock is on and the setting allows it. Tray icon: per setting.</summary>
+    private void UpdateOverlays()
+    {
+        var s = Config.Settings;
+        if (_tray is not null)
+        {
+            _tray.Visible = s.ShowTrayIcon;
+            _tray.Update(Lock.State);
+        }
+
+        if (s.ShowLockButton && Lock.State != LockState.Off)
+        {
+            _button ??= new FloatingLockButton(this);
+            _button.Update(Lock.State);
+            _button.ShowAtSavedSpot();
+        }
+        else
+        {
+            _button?.Hide();
+        }
+    }
+
     public void ShowMainWindow()
     {
         if (_main is null)
@@ -186,6 +214,8 @@ public sealed class AppHost : IDisposable
 
     public void Dispose()
     {
+        _tray?.Dispose();
+        _tray = null;
         _lockService.Dispose();
         _instance?.Dispose();
         _instance = null;

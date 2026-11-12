@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="WindowFix.Core.Tests" />
+    <InternalsVisibleTo Include="WindowFix" />
   </ItemGroup>
 
 </Project>

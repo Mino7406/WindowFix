@@ -11,6 +11,7 @@
     <RootNamespace>WindowFix</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>0.1.0</Version>
+    <ApplicationIcon>Assets\WindowFix.ico</ApplicationIcon>
     <Product>WindowFix</Product>
     <!-- WFO0003 targets WinForms apps; this is a WPF app whose DPI mode must come from the manifest. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
@@ -28,6 +29,10 @@
     <!-- WinForms is only used for the tray icon; keep its names out of the global namespace to avoid WPF clashes. -->
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\WindowFix.ico" />
   </ItemGroup>
 
   <ItemGroup>
