@@ -1,7 +1,9 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Diagnostics;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using WindowFix.Core.Layout;
 using WindowFix.Core.Lock;
 using static WindowFix.Core.Platform.NativeMethods;
@@ -12,10 +14,27 @@ namespace WindowFix;
 /// The lock button: a small tab glued to a monitor edge, shown while the lock is on.
 /// Click = pause / re-lock (windows go back to their saved places). Drag = move it; on release it sticks to the
 /// nearest edge and the spot is remembered. Never takes focus; not in the taskbar or Alt+Tab.
+/// While dragged it becomes a symmetric rounded rectangle; on release it slides to the edge and flattens again.
 /// </summary>
 public partial class FloatingLockButton : Window
 {
-    private const double TabThicknessDip = 22, TabLengthDip = 56;
+    private const double TabThicknessDip = 22, TabLengthDip = 56, Radius = 9;
+    private static readonly Duration Quick = new(TimeSpan.FromMilliseconds(140));
+    private static readonly TimeSpan SlideTime = TimeSpan.FromMilliseconds(220);
+
+    /// <summary>0 = half tab glued to the edge (flat side), 1 = symmetric rounded rectangle (while dragging).</summary>
+    public static readonly DependencyProperty RoundnessProperty = DependencyProperty.Register(
+        nameof(Roundness), typeof(double), typeof(FloatingLockButton),
+        new PropertyMetadata(0.0, (d, _) => ((FloatingLockButton)d).ApplyCorners()));
+
+    public double Roundness
+    {
+        get => (double)GetValue(RoundnessProperty);
+        set => SetValue(RoundnessProperty, value);
+    }
+
+    private ScreenEdge _edge = ScreenEdge.Right;
+    private EventHandler? _slide;
     private static readonly TimeSpan ToggleGuard = TimeSpan.FromMilliseconds(400);
 
     private readonly AppHost _host;
@@ -32,9 +51,10 @@ public partial class FloatingLockButton : Window
             long ex = GetWindowLongPtr(Hwnd, GWL_EXSTYLE);
             SetWindowLongPtr(Hwnd, GWL_EXSTYLE, (nint)(ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW));
         };
-        MouseEnter += (_, _) => Opacity = 1.0;
-        MouseLeave += (_, _) => Opacity = RestingOpacity;
+        MouseEnter += (_, _) => FadeTo(1.0);
+        MouseLeave += (_, _) => { if (_slide is null) FadeTo(RestingOpacity); };
         Update(host.Lock.State);
+        ApplyCorners();
     }
 
     private nint Hwnd => new WindowInteropHelper(this).Handle;
@@ -48,7 +68,7 @@ public partial class FloatingLockButton : Window
         ToolTip = paused
             ? "잠깐 풀어 둔 상태예요. 누르면 창들이 원래 자리로 돌아가고 다시 고정돼요."
             : "창 고정 중이에요. 누르면 잠깐 풀려서 창을 옮길 수 있어요. (끌어서 다른 가장자리로 옮길 수 있어요)";
-        if (!IsMouseOver) Opacity = RestingOpacity;
+        if (!IsMouseOver) FadeTo(RestingOpacity);
     }
 
     /// <summary>Show glued to the saved edge spot, or the default spot on the secondary monitor's right edge.</summary>
@@ -70,15 +90,43 @@ public partial class FloatingLockButton : Window
 
     private void Place(TabRect t)
     {
-        const double r = 9;
-        Tab.CornerRadius = t.Edge switch
-        {
-            ScreenEdge.Right => new CornerRadius(r, 0, 0, r),
-            ScreenEdge.Left => new CornerRadius(0, r, r, 0),
-            ScreenEdge.Top => new CornerRadius(0, 0, r, r),
-            _ => new CornerRadius(r, r, 0, 0),
-        };
+        _edge = t.Edge;
+        ApplyCorners();
         SetWindowPos(Hwnd, 0, t.X, t.Y, t.Width, t.Height, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+
+    private void ApplyCorners()
+    {
+        if (Tab is null) return;
+        var (tl, tr, br, bl) = LockButtonPlacement.Corners(_edge, Roundness, Radius);
+        Tab.CornerRadius = new CornerRadius(tl, tr, br, bl);
+    }
+
+    private void AnimateRoundness(double to) =>
+        BeginAnimation(RoundnessProperty, new DoubleAnimation(to, Quick) { EasingFunction = new QuadraticEase() });
+
+    private void FadeTo(double to) =>
+        BeginAnimation(OpacityProperty, new DoubleAnimation(to, Quick));
+
+    /// <summary>Glide from where the tab was dropped to its snapped spot, then flatten the side touching the edge.</summary>
+    private void SlideTo(TabRect target, Action done)
+    {
+        GetWindowRect(Hwnd, out var r);
+        var from = new TabRect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top, target.Edge);
+        _edge = target.Edge; // still fully round (Roundness = 1) while gliding
+        var clock = Stopwatch.StartNew();
+        if (_slide is not null) CompositionTarget.Rendering -= _slide;
+        _slide = (_, _) =>
+        {
+            double t = clock.Elapsed.TotalMilliseconds / SlideTime.TotalMilliseconds;
+            var step = LockButtonPlacement.Interpolate(from, target, t);
+            SetWindowPos(Hwnd, 0, step.X, step.Y, step.Width, step.Height, SWP_NOZORDER | SWP_NOACTIVATE);
+            if (t < 1) return;
+            CompositionTarget.Rendering -= _slide;
+            _slide = null;
+            done();
+        };
+        CompositionTarget.Rendering += _slide;
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -96,6 +144,8 @@ public partial class FloatingLockButton : Window
 
         _downAt = null;
         ReleaseMouseCapture();
+        AnimateRoundness(1); // lift off the edge: symmetric rounded rectangle while dragging
+        FadeTo(1.0);
         DragMove(); // returns when the mouse button is released
         SnapAndSave();
     }
@@ -118,9 +168,13 @@ public partial class FloatingLockButton : Window
         GetWindowRect(Hwnd, out var r);
         var (len, thick) = TabSize();
         var t = LockButtonPlacement.Snap((r.Left + r.Right) / 2, (r.Top + r.Bottom) / 2, _host.Ws.GetMonitors(), len, thick);
-        Place(t);
-        _host.Config.Settings.LockButtonX = t.CenterX;
-        _host.Config.Settings.LockButtonY = t.CenterY;
-        _host.SaveConfig();
+        SlideTo(t, () =>
+        {
+            AnimateRoundness(0); // settle: flat against the edge again
+            if (!IsMouseOver) FadeTo(RestingOpacity);
+            _host.Config.Settings.LockButtonX = t.CenterX;
+            _host.Config.Settings.LockButtonY = t.CenterY;
+            _host.SaveConfig();
+        });
     }
 }

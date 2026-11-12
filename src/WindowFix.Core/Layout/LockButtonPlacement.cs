@@ -58,6 +58,30 @@ public static class LockButtonPlacement
         };
     }
 
+    /// <summary>
+    /// Corner radii (top-left, top-right, bottom-right, bottom-left) of a tab glued to <paramref name="edge"/>.
+    /// The side touching the screen edge is flat at roundness 0; at 1 (while dragging) all four corners are round.
+    /// </summary>
+    public static (double TopLeft, double TopRight, double BottomRight, double BottomLeft) Corners(ScreenEdge edge, double roundness, double radius)
+    {
+        double flat = radius * Math.Clamp(roundness, 0, 1);
+        return edge switch
+        {
+            ScreenEdge.Right => (radius, flat, flat, radius),
+            ScreenEdge.Left => (flat, radius, radius, flat),
+            ScreenEdge.Top => (flat, flat, radius, radius),
+            _ => (radius, radius, flat, flat),
+        };
+    }
+
+    /// <summary>Ease-out-cubic step from <paramref name="a"/> to <paramref name="b"/> for the snap slide; t is clamped to [0, 1].</summary>
+    public static TabRect Interpolate(TabRect a, TabRect b, double t)
+    {
+        double e = 1 - Math.Pow(1 - Math.Clamp(t, 0, 1), 3);
+        int lerp(int x, int y) => (int)Math.Round(x + (y - x) * e, MidpointRounding.AwayFromZero);
+        return new TabRect(lerp(a.X, b.X), lerp(a.Y, b.Y), lerp(a.Width, b.Width), lerp(a.Height, b.Height), b.Edge);
+    }
+
     public static bool IsClick(double dx, double dy) => Math.Abs(dx) < DragThreshold && Math.Abs(dy) < DragThreshold;
 
     private static bool Contains(PixelRect r, int x, int y) => x >= r.X && x < r.Right && y >= r.Y && y < r.Bottom;

@@ -78,6 +78,47 @@ public sealed class LockButtonPlacementTests
     }
 
     [Fact]
+    public void Corners_GluedToRightEdge_FlatOnTheRight()
+    {
+        Assert.Equal((9.0, 0.0, 0.0, 9.0), LockButtonPlacement.Corners(ScreenEdge.Right, roundness: 0, radius: 9));
+        Assert.Equal((0.0, 9.0, 9.0, 0.0), LockButtonPlacement.Corners(ScreenEdge.Left, roundness: 0, radius: 9));
+        Assert.Equal((0.0, 0.0, 9.0, 9.0), LockButtonPlacement.Corners(ScreenEdge.Top, roundness: 0, radius: 9));
+        Assert.Equal((9.0, 9.0, 0.0, 0.0), LockButtonPlacement.Corners(ScreenEdge.Bottom, roundness: 0, radius: 9));
+    }
+
+    [Fact]
+    public void Corners_WhileDragging_SymmetricRoundedRect()
+    {
+        Assert.Equal((9.0, 9.0, 9.0, 9.0), LockButtonPlacement.Corners(ScreenEdge.Right, roundness: 1, radius: 9));
+        Assert.Equal((9.0, 4.5, 4.5, 9.0), LockButtonPlacement.Corners(ScreenEdge.Right, roundness: 0.5, radius: 9));
+    }
+
+    [Fact]
+    public void Interpolate_EndsExactlyOnTarget()
+    {
+        var start = new TabRect(3000, 500, 28, 70, ScreenEdge.Right);
+        var end = new TabRect(3812, 797, 28, 70, ScreenEdge.Right);
+
+        Assert.Equal(start, LockButtonPlacement.Interpolate(start, end, 0));
+        Assert.Equal(end, LockButtonPlacement.Interpolate(start, end, 1));
+        Assert.Equal(end, LockButtonPlacement.Interpolate(start, end, 1.7));
+    }
+
+    [Fact]
+    public void Interpolate_EasesOut()
+    {
+        var start = new TabRect(0, 0, 28, 70, ScreenEdge.Left);
+        var end = new TabRect(800, 0, 70, 28, ScreenEdge.Top);
+
+        var mid = LockButtonPlacement.Interpolate(start, end, 0.5);
+
+        Assert.Equal(700, mid.X);      // ease-out cubic: 1 - 0.5^3 = 0.875 of the way
+        Assert.Equal(65, mid.Width);   // size morphs too (vertical tab → horizontal tab)
+        Assert.Equal(33, mid.Height);
+        Assert.Equal(ScreenEdge.Top, mid.Edge);
+    }
+
+    [Fact]
     public void IsClick_SmallMove_True()
     {
         Assert.True(LockButtonPlacement.IsClick(2, -3));
