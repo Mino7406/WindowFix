@@ -1,0 +1,52 @@
+<Window x:Class="WindowFix.SaveDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:WindowFix.Controls"
+        Title="지금 배치 저장" Width="980" Height="560" MinWidth="720" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="#F4F5F7">
+    <DockPanel Margin="12">
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button x:Name="SaveButton" Content="저장" IsDefault="True" Click="OnSave" FontWeight="SemiBold" />
+                    <Button Content="취소" IsCancel="True" Margin="0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="프리셋 이름" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBox x:Name="NameBox" Width="240" TextChanged="OnNameChanged" />
+                    <TextBlock x:Name="CountText" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="#666" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="380" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Margin="0,0,12,0">
+                <TextBlock DockPanel.Dock="Top" Text="지금 떠 있는 창 — 프리셋에 넣을 창을 체크하세요" Foreground="#555" Margin="0,0,0,6" />
+                <ListBox x:Name="WindowList" HorizontalContentAlignment="Stretch">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="2,3">
+                                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsChecked}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <Image DockPanel.Dock="Left" Source="{Binding Icon}" Width="20" Height="20" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Program}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Title}" Foreground="#666" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Detail}" Foreground="#999" FontSize="11" />
+                                </StackPanel>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
+            <Border Grid.Column="1" Background="#16181C" CornerRadius="6">
+                <c:MonitorPreview x:Name="Preview" Margin="8" />
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

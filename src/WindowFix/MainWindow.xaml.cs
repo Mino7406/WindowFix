@@ -116,17 +116,8 @@ public partial class MainWindow : Window
 
     private void OnSaveCurrent(object sender, RoutedEventArgs e)
     {
-        var monitors = _host.Ws.GetMonitors();
-        var candidates = _host.Ws.GetWindows(includeHidden: false)
-            .Where(w => WindowMatcher.IsCandidate(w) && w.ProcessId != Environment.ProcessId)
-            .ToList();
-        var selected = PresetCapture.DefaultSelection(candidates, monitors);
-        if (selected.Count == 0)
-        {
-            StatusText.Text = "서브모니터에 저장할 창이 없어요.";
-            return;
-        }
-        AddPreset(PresetCapture.Capture($"프리셋 {_host.Config.Presets.Count + 1}", selected, monitors));
+        var preset = SaveDialog.Show(this, _host.Ws, $"프리셋 {_host.Config.Presets.Count + 1}");
+        if (preset is not null) AddPreset(preset);
     }
 
     private void AddPreset(Preset preset)
