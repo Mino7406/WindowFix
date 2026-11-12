@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Interop;
 using Microsoft.Win32;
 using WindowFix.Core.Model;
+using ThemeMode = WindowFix.Core.Model.ThemeMode;
 
 namespace WindowFix;
 
