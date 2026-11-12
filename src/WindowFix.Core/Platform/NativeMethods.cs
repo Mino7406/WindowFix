@@ -135,6 +135,8 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_TARGET_DEVICE_NAME info);
     [DllImport("user32.dll")] public static extern nint SetWinEventHook(uint min, uint max, nint hmod, WinEventProc cb, uint pid, uint tid, uint flags);
     [DllImport("user32.dll")] public static extern bool UnhookWinEvent(nint hook);
+    [DllImport("user32.dll")] public static extern nint GetAncestor(nint hwnd, uint flags);
+    public const uint GA_ROOT = 2;
 
     // ---- dwmapi ----
     [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(nint hwnd, int attr, out int value, int size);
