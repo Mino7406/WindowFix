@@ -1,0 +1,43 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Dark theme. Same keys in Dark.xaml and Light.xaml; use them via DynamicResource. -->
+    <SolidColorBrush x:Key="Bg.Window" Color="#1B1D22" />
+    <SolidColorBrush x:Key="Bg.Sidebar" Color="#16181C" />
+    <SolidColorBrush x:Key="Bg.Card" Color="#22252B" />
+    <SolidColorBrush x:Key="Bg.Stage" Color="#121317" />
+    <SolidColorBrush x:Key="Bg.Hover" Color="#2A2D35" />
+    <SolidColorBrush x:Key="Bg.Selected" Color="#2B3350" />
+    <SolidColorBrush x:Key="Fg.Selected" Color="#B4C4FF" />
+    <SolidColorBrush x:Key="Border.Subtle" Color="#2C3038" />
+    <SolidColorBrush x:Key="Fg.Primary" Color="#E7E9EE" />
+    <SolidColorBrush x:Key="Fg.Secondary" Color="#AEB4BF" />
+    <SolidColorBrush x:Key="Fg.Muted" Color="#7D8390" />
+    <SolidColorBrush x:Key="Accent" Color="#4C6EF5" />
+    <SolidColorBrush x:Key="Accent.Hover" Color="#5C7CFA" />
+    <SolidColorBrush x:Key="Accent.Fg" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Ghost.Bg" Color="#262930" />
+    <SolidColorBrush x:Key="Ghost.Border" Color="#343842" />
+    <SolidColorBrush x:Key="Ghost.Fg" Color="#D3D7DF" />
+    <SolidColorBrush x:Key="Input.Bg" Color="#17191E" />
+    <SolidColorBrush x:Key="Input.Border" Color="#343842" />
+    <SolidColorBrush x:Key="Switch.Off" Color="#3A3E48" />
+    <SolidColorBrush x:Key="Lock.Active.Bg" Color="#1F3B2C" />
+    <SolidColorBrush x:Key="Lock.Active.Border" Color="#2F6B4A" />
+    <SolidColorBrush x:Key="Lock.Active.Fg" Color="#8FD1AB" />
+    <SolidColorBrush x:Key="Lock.Paused.Bg" Color="#3D2F17" />
+    <SolidColorBrush x:Key="Lock.Paused.Border" Color="#7A5A1F" />
+    <SolidColorBrush x:Key="Lock.Paused.Fg" Color="#F2C26B" />
+    <SolidColorBrush x:Key="Lock.Off.Bg" Color="#22252B" />
+    <SolidColorBrush x:Key="Lock.Off.Border" Color="#2C3038" />
+    <SolidColorBrush x:Key="Monitor.Fill" Color="#1D2027" />
+    <SolidColorBrush x:Key="Monitor.Stroke" Color="#30343D" />
+    <SolidColorBrush x:Key="Monitor.Label" Color="#6E7480" />
+    <SolidColorBrush x:Key="Chip.Active.Bg" Color="#1F3B2C" />
+    <SolidColorBrush x:Key="Chip.Active.Fg" Color="#6BD49A" />
+    <SolidColorBrush x:Key="Chip.Paused.Bg" Color="#3D2F17" />
+    <SolidColorBrush x:Key="Chip.Paused.Fg" Color="#F2C26B" />
+    <SolidColorBrush x:Key="Chip.Off.Bg" Color="#2A2D35" />
+    <SolidColorBrush x:Key="Chip.Off.Fg" Color="#9AA0AA" />
+    <SolidColorBrush x:Key="Danger.Fg" Color="#FF8787" />
+    <SolidColorBrush x:Key="Guide.Overlay" Color="#E6121317" />
+</ResourceDictionary>
