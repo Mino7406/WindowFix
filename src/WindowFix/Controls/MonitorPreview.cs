@@ -42,6 +42,18 @@ public sealed class MonitorPreview : FrameworkElement
 
     public event Action<Guid>? RectClicked;
 
+    /// <summary>Well-known apps keep their own colours (Discord blurple, KakaoTalk yellow).</summary>
+    public static Color? BrandColor(string label)
+    {
+        var l = label.ToLowerInvariant();
+        if (l.Contains("discord")) return Color.FromRgb(0x58, 0x65, 0xF2);
+        if (l.Contains("kakao") || l.Contains("카카오") || l.Contains("카톡")) return Color.FromRgb(0xFE, 0xE5, 0x00);
+        if (l.Contains("youtube")) return Color.FromRgb(0xFF, 0x33, 0x33);
+        if (l.Contains("chrome")) return Color.FromRgb(0x42, 0x85, 0xF4);
+        if (l.Contains("spotify")) return Color.FromRgb(0x1D, 0xB9, 0x54);
+        return null;
+    }
+
     public static Color ColorFor(Guid id) => Palette[(id.GetHashCode() & 0x7FFFFFFF) % Palette.Length];
 
     protected override void OnRender(DrawingContext dc)
@@ -71,13 +83,14 @@ public sealed class MonitorPreview : FrameworkElement
         foreach (var pr in _rects)
         {
             var r = Map(pr.Abs);
-            var c = ColorFor(pr.Id);
-            var fill = new SolidColorBrush(Color.FromArgb(pr.Emphasized ? (byte)0xC0 : (byte)0x38, c.R, c.G, c.B));
+            var c = BrandColor(pr.Label) ?? ColorFor(pr.Id);
+            bool lightFill = (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255 > 0.6;
+            var fill = new SolidColorBrush(Color.FromArgb(pr.Emphasized ? (byte)0xF2 : (byte)0x38, c.R, c.G, c.B));
             var pen = new Pen(Selected == pr.Id ? Brushes.White : new SolidColorBrush(Color.FromArgb(0xA0, 0xFF, 0xFF, 0xFF)),
                 Selected == pr.Id ? 2.5 : 1);
             dc.DrawRoundedRectangle(fill, pen, r, 2, 2);
             DrawText(dc, pr.Label, new Point(r.X + 6, r.Y + r.Height / 2 - 8), 12,
-                pr.Emphasized ? Brushes.White : Brushes.LightGray, r.Width - 12);
+                pr.Emphasized ? (lightFill ? new SolidColorBrush(Color.FromRgb(0x1D, 0x21, 0x29)) : Brushes.White) : Brushes.LightGray, r.Width - 12);
             _hit.Add((r, pr.Id));
         }
     }

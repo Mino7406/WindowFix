@@ -22,6 +22,7 @@ public partial class SaveDialog : Window
     private SaveDialog(IWindowSystem ws, string defaultName)
     {
         InitializeComponent();
+        SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
         _monitors = ws.GetMonitors();
         var windows = ws.GetWindows(includeHidden: false)
             .Where(w => WindowMatcher.IsCandidate(w) && w.ProcessId != Environment.ProcessId && !w.IsMinimized)
