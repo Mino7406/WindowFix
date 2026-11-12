@@ -40,7 +40,8 @@
     <DockPanel>
         <!-- Status bar: what just happened + what to do next -->
         <Border DockPanel.Dock="Bottom" Background="#E8EAEE" Padding="14,6">
-            <TextBlock x:Name="StatusText" Foreground="#333" TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="StatusText" Foreground="#333" TextWrapping="Wrap" MaxHeight="90"
+                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
         </Border>
 
         <!-- Lock + settings -->
@@ -79,8 +80,10 @@
                               SelectionChanged="OnPresetSelected" ToolTip="저장해 둔 배치를 골라요." />
                     <Button x:Name="ApplyButton" Content="이 배치로 맞추기" Click="OnApply"
                             ToolTip="고른 배치대로 창들을 지금 바로 옮겨요." />
-                    <Button x:Name="RenameButton" Content="이름 바꾸기" Click="OnRename" />
-                    <Button x:Name="DeleteButton" Content="삭제" Click="OnDelete" />
+                    <Button x:Name="RenameButton" Content="이름 바꾸기" Click="OnRename"
+                            ToolTip="고른 배치의 이름을 바꿔요." />
+                    <Button x:Name="DeleteButton" Content="삭제" Click="OnDelete"
+                            ToolTip="고른 배치를 지워요. 창이나 프로그램은 그대로 있어요." />
                 </StackPanel>
             </DockPanel>
         </Border>

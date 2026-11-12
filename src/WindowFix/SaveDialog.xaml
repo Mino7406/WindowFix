@@ -32,6 +32,8 @@
                     <TextBlock Text="어떤 창을 고정할까요?" FontSize="16" FontWeight="SemiBold" />
                     <TextBlock Foreground="#666" TextWrapping="Wrap" Margin="0,3,0,0"
                                Text="지금 화면에 떠 있는 창이에요. 고정할 창에 체크하세요. 오른쪽 그림에서 창을 눌러도 돼요. (보조 모니터에 있는 창은 미리 체크해 뒀어요)" />
+                    <TextBlock Foreground="#B26A00" TextWrapping="Wrap" Margin="0,4,0,0" FontSize="12"
+                               Text="찾는 창이 없나요? 최소화했거나 트레이에 숨긴 창은 안 보여요. 그 창을 화면에 띄운 뒤 다시 열어 주세요." />
                 </StackPanel>
                 <ListBox x:Name="WindowList" HorizontalContentAlignment="Stretch">
                     <ListBox.ItemTemplate>

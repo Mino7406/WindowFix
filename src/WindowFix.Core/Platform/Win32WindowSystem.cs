@@ -57,6 +57,9 @@ public sealed class Win32WindowSystem : IWindowSystem
         bool ok = SetWindowPos(hwnd, 0, rect.X, rect.Y, rect.Width, rect.Height,
             SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
         if (!ok) return false;
+        // Moving onto a monitor with a different scale makes per-monitor-aware apps (Discord) rescale themselves on
+        // WM_DPICHANGED; a second identical request lands the size exactly (same approach as PowerToys FancyZones).
+        SetWindowPos(hwnd, 0, rect.X, rect.Y, rect.Width, rect.Height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
 
         if (maximize) ShowCmd(hwnd, SW_MAXIMIZE);
         return true;

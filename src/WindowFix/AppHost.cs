@@ -21,6 +21,7 @@ public sealed class AppHost : IDisposable
     private SingleInstance? _instance;
     private MainWindow? _main;
     private FloatingLockButton? _button;
+    private bool _startupRunning;
     private Tray.TrayIcon? _tray;
 
     public AppHost(App app)
@@ -55,7 +56,18 @@ public sealed class AppHost : IDisposable
             return;
         }
 
-        Config = _store.Load();
+        try
+        {
+            Config = _store.Load();
+        }
+        catch (ConfigUnavailableException)
+        {
+            MessageBox.Show("설정 파일을 지금 읽을 수 없어요. 저장해 둔 배치를 지키기 위해 WindowFix를 닫을게요.\n잠시 뒤 다시 실행해 주세요.",
+                "WindowFix", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Shutdown();
+            return;
+        }
+        SyncRunKey(); // the exe may have been moved since the last save
         _tray = new Tray.TrayIcon(this);
         Lock.StateChanged += _ => UpdateOverlays();
         ConfigChanged += UpdateOverlays;
@@ -75,27 +87,39 @@ public sealed class AppHost : IDisposable
     {
         var s = Config.Settings;
         var preset = Config.Presets.FirstOrDefault(p => p.Id == (s.StartupPresetId ?? s.CurrentPresetId));
-        if (preset is null)
+        if (preset is not null)
         {
-            if (!s.LockEnabled) Shutdown();
-            else Lock.SetEnabled(true);
-            return;
+            _startupRunning = true;
+            try
+            {
+                var report = await new StartupSequence(Applier, SystemClock.Instance, d => Task.Delay(d)).RunAsync(preset, CancellationToken.None);
+                if (s.CurrentPresetId != preset.Id)
+                {
+                    s.CurrentPresetId = preset.Id;
+                    SaveConfig();
+                }
+                Applied?.Invoke(preset, report);
+            }
+            catch (Exception ex)
+            {
+                App.LogError(ex); // a failed restore must not stop the lock from arming
+            }
+            finally
+            {
+                _startupRunning = false;
+            }
         }
 
-        var report = await new StartupSequence(Applier, SystemClock.Instance, d => Task.Delay(d)).RunAsync(preset, CancellationToken.None);
-        if (s.CurrentPresetId != preset.Id)
-        {
-            s.CurrentPresetId = preset.Id;
-            SaveConfig();
-        }
-        Applied?.Invoke(preset, report);
+        if (s.LockEnabled && Lock.State == LockState.Off) Lock.SetEnabled(true);
+        ExitIfIdle();
+    }
 
-        if (!s.LockEnabled)
-        {
-            Shutdown();
-            return;
-        }
-        Lock.SetEnabled(true);
+    private bool MainVisible => _main?.IsVisible == true;
+
+    /// <summary>Ends the process when there is nothing left to guard and the user isn't looking at the window.</summary>
+    private void ExitIfIdle()
+    {
+        if (AppLifetime.ExitWhenIdle(Config.Settings.LockEnabled, _startupRunning, MainVisible)) Shutdown();
     }
 
     /// <summary>Apply with launch/unhide (the [적용] button), make it the current preset, re-arm the lock.</summary>
@@ -115,6 +139,7 @@ public sealed class AppHost : IDisposable
         Config.Settings.LockEnabled = on;
         SaveConfig();
         Lock.SetEnabled(on);
+        if (!on) ExitIfIdle(); // e.g. turned off from the tray while the window is hidden
     }
 
     /// <summary>Call after editing the current preset so a running lock uses the new targets.</summary>
@@ -126,6 +151,12 @@ public sealed class AppHost : IDisposable
     public void SaveConfig()
     {
         _store.Save(Config);
+        SyncRunKey();
+        ConfigChanged?.Invoke();
+    }
+
+    private void SyncRunKey()
+    {
         try
         {
             StartupRegistration.Sync(Config.Settings, Environment.ProcessPath!, new RegistryRunKey());
@@ -134,7 +165,6 @@ public sealed class AppHost : IDisposable
         {
             // The app still works; it just won't start with Windows.
         }
-        ConfigChanged?.Invoke();
     }
 
     /// <summary>Floating lock button: only while the lock is on and the setting allows it. Tray icon: per setting.</summary>
@@ -173,7 +203,7 @@ public sealed class AppHost : IDisposable
 
     private void OnMainWindowClosing(object? sender, CancelEventArgs e)
     {
-        if (Lock.State != LockState.Off)
+        if (!AppLifetime.ExitOnMainWindowClose(Config.Settings.LockEnabled, _startupRunning))
         {
             e.Cancel = true;
             _main!.Hide();
@@ -201,7 +231,8 @@ public sealed class AppHost : IDisposable
 
     private void StartLock(Preset preset, ApplyReport report)
     {
-        var tracker = new LockTracker(preset, Ws.GetMonitors, new SnapBackPolicy(SystemClock.Instance));
+        var tracker = new LockTracker(preset, Ws.GetMonitors, new SnapBackPolicy(SystemClock.Instance),
+            pid => Ws.GetWindows(includeHidden: true).Where(w => w.ProcessId == pid).ToList());
         tracker.BindInitial(report.Results);
         _lockService.Start(tracker);
     }

@@ -14,6 +14,7 @@ public partial class MainWindow : Window
 {
     private readonly AppHost _host;
     private bool _refreshing;
+    private bool _selectCurrentOnRefresh;
     private Guid? _selectedEntry;
 
     public MainWindow(AppHost host)
@@ -34,10 +35,12 @@ public partial class MainWindow : Window
     private void RefreshAll()
     {
         _refreshing = true;
-        var current = _host.CurrentPreset;
+        // Keep showing the layout the user picked; fall back to the current one (e.g. after a delete or a new save).
+        var keep = Selected is { } sel && _host.Config.Presets.Contains(sel) && !_selectCurrentOnRefresh ? sel : _host.CurrentPreset;
+        _selectCurrentOnRefresh = false;
         PresetCombo.ItemsSource = null;
         PresetCombo.ItemsSource = _host.Config.Presets;
-        PresetCombo.SelectedItem = current;
+        PresetCombo.SelectedItem = keep;
         _refreshing = false;
         RefreshPreview();
         RefreshToggles();
@@ -98,7 +101,7 @@ public partial class MainWindow : Window
             .ToList();
         StatusText.Text = problems.Count == 0
             ? $"✔ '{p.Name}' 배치로 맞췄어요 ({report.Results.Count}개 창)."
-            : $"'{p.Name}' 배치로 맞췄어요. 단, " + string.Join(" · ", problems);
+            : $"'{p.Name}' 배치로 맞췄어요. 단,\n  · " + string.Join("\n  · ", problems);
     }
 
     private static string Describe(ApplyOutcome o) => o switch
@@ -107,6 +110,7 @@ public partial class MainWindow : Window
         ApplyOutcome.MonitorMissing => "그 모니터가 연결돼 있지 않아 건너뛰었어요",
         ApplyOutcome.Failed => "옮길 수 없었어요 (관리자 권한으로 실행된 창일 수 있어요)",
         ApplyOutcome.LaunchedWaiting => "프로그램을 켜는 중이에요. 창이 뜨면 [이 배치로 맞추기]를 한 번 더 눌러 주세요",
+        ApplyOutcome.LaunchFailed => "프로그램을 켤 수 없었어요 (창 설정 → 고급 설정의 실행할 파일을 확인하세요)",
         _ => "완료",
     };
 
@@ -135,9 +139,11 @@ public partial class MainWindow : Window
     {
         _host.Config.Presets.Add(preset);
         _host.Config.Settings.CurrentPresetId = preset.Id;
+        _selectCurrentOnRefresh = true;
         _host.SaveConfig();
+        _host.RefreshLock(); // a running lock now guards the layout just saved (windows are already in place)
         StatusText.Text = _host.Config.Settings.LockEnabled
-            ? $"✔ '{preset.Name}' 저장했어요. 창 고정 중이라면 [이 배치로 맞추기]를 누르면 새 배치를 지켜요."
+            ? $"✔ '{preset.Name}' 저장했어요. 이제 이 배치를 고정하고 있어요."
             : $"✔ '{preset.Name}' 저장했어요! 이제 아래 [🔒 창 고정]을 켜면 창이 이 자리에 고정돼요.";
     }
 
@@ -158,9 +164,20 @@ public partial class MainWindow : Window
         _host.Config.Presets.Remove(p);
         var s = _host.Config.Settings;
         if (s.StartupPresetId == p.Id) s.StartupPresetId = null;
+        bool wasLocked = s.CurrentPresetId == p.Id && s.LockEnabled;
         if (s.CurrentPresetId == p.Id) s.CurrentPresetId = _host.Config.Presets.FirstOrDefault()?.Id;
-        _host.SaveConfig();
-        _host.RefreshLock();
+        _selectCurrentOnRefresh = true;
+        if (wasLocked)
+        {
+            // Never silently start guarding a different layout (windows would jump).
+            _host.SetLockEnabled(false);
+            StatusText.Text = $"고정하던 '{p.Name}' 배치를 지워서 창 고정을 껐어요.";
+        }
+        else
+        {
+            _host.SaveConfig();
+            StatusText.Text = $"'{p.Name}' 배치를 지웠어요.";
+        }
     }
 
     // ---------- toggles ----------

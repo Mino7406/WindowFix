@@ -73,15 +73,16 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
         }
     }
 
-    private void Schedule(nint hwnd, bool shown)
+    private void Schedule(nint hwnd, bool shown, TimeSpan? delay = null)
     {
+        var due = delay ?? Debounce;
         if (_pending.TryGetValue(hwnd, out var p))
         {
             p.Shown |= shown;
-            p.Timer.Change(Debounce, Timeout.InfiniteTimeSpan);
+            p.Timer.Change(due, Timeout.InfiniteTimeSpan);
             return;
         }
-        var timer = new Timer(_ => _ui?.Post(_ => Fire(hwnd), null), null, Debounce, Timeout.InfiniteTimeSpan);
+        var timer = new Timer(_ => _ui?.Post(_ => Fire(hwnd), null), null, due, Timeout.InfiniteTimeSpan);
         _pending[hwnd] = new PendingEval(timer) { Shown = shown };
     }
 
@@ -107,6 +108,8 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
         var d = shown ? tracker.OnShown(info) : tracker.OnLocationChanged(info);
         if (d.Action is LockAction.Revert or LockAction.PlaceNew)
             ws.SetPlacement(hwnd, d.Target, d.Maximize);
+        else if (d.RetryAfter is { } wait)
+            Schedule(hwnd, shown: false, wait + TimeSpan.FromMilliseconds(100)); // look again once the cooldown ends
     }
 
     private void Forget(nint hwnd)
