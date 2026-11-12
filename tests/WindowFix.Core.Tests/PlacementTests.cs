@@ -42,7 +42,7 @@ public sealed class PlacementTests
     {
         var m = Mon(0, 0, 1920, 1080);
 
-        var r = Placement.ToAbsolute(new RelRect(1800, 0, 1557, 930), m);
+        var r = Placement.ToAbsolute(new RelRect(1800, 0, 1557, 930), m, clamp: true);
 
         Assert.Equal(new PixelRect(363, 0, 1557, 930), r);
     }
@@ -52,9 +52,18 @@ public sealed class PlacementTests
     {
         var m = Mon(1920, 0, 1280, 720);
 
-        var r = Placement.ToAbsolute(new RelRect(-10, -10, 2000, 1000), m);
+        var r = Placement.ToAbsolute(new RelRect(-10, -10, 2000, 1000), m, clamp: true);
 
         Assert.Equal(new PixelRect(1920, 0, 1280, 720), r);
+    }
+
+    [Fact]
+    public void ToAbsolute_NoClamp_KeepsInvisibleBorderOverhang()
+    {
+        // Real Discord window: GetWindowRect starts 6px left of the monitor because of the invisible resize border.
+        var m = Mon(2048, 0, 2048, 1152);
+
+        Assert.Equal(new PixelRect(2042, 0, 1601, 958), Placement.ToAbsolute(new RelRect(-6, 0, 1601, 958), m));
     }
 
     [Fact]

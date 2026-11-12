@@ -8,10 +8,16 @@ public static class Placement
     public static RelRect ToRelative(PixelRect abs, MonitorInfo m) =>
         new(abs.X - m.Bounds.X, abs.Y - m.Bounds.Y, abs.Width, abs.Height);
 
-    /// <summary>Maps a monitor-relative rect onto <paramref name="m"/>, shrinking then shifting it to stay inside the monitor.</summary>
-    public static PixelRect ToAbsolute(RelRect rel, MonitorInfo m)
+    /// <summary>
+    /// Maps a monitor-relative rect onto <paramref name="m"/>. With <paramref name="clamp"/> (used when the monitor's
+    /// resolution changed since capture) the rect is shrunk, then shifted, to stay inside the monitor. Without it the
+    /// rect is kept exactly, because real windows overhang the monitor edge by their invisible resize border.
+    /// </summary>
+    public static PixelRect ToAbsolute(RelRect rel, MonitorInfo m, bool clamp = false)
     {
         var b = m.Bounds;
+        if (!clamp) return new PixelRect(b.X + rel.X, b.Y + rel.Y, rel.Width, rel.Height);
+
         int w = Math.Min(rel.Width, b.Width);
         int h = Math.Min(rel.Height, b.Height);
         int x = Math.Clamp(b.X + rel.X, b.X, b.Right - w);
