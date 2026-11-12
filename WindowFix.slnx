@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WindowFix.Core/WindowFix.Core.csproj" />
+    <Project Path="src/WindowFix/WindowFix.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WindowFix.Core.Tests/WindowFix.Core.Tests.csproj" />
+  </Folder>
+</Solution>
