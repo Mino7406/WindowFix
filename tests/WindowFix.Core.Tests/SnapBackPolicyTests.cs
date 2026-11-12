@@ -51,6 +51,18 @@ public sealed class SnapBackPolicyTests
     }
 
     [Fact]
+    public void SnapBackPolicy_CooldownRemaining()
+    {
+        var p = new SnapBackPolicy(_clock);
+        Assert.Null(p.CooldownRemaining(1));
+        for (int i = 0; i < 6; i++) p.ShouldRevert(1);
+
+        _clock.Advance(TimeSpan.FromSeconds(20));
+
+        Assert.Equal(TimeSpan.FromSeconds(40), p.CooldownRemaining(1));
+    }
+
+    [Fact]
     public void SnapBackPolicy_ForgetResets()
     {
         var p = new SnapBackPolicy(_clock);

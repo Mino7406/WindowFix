@@ -103,6 +103,34 @@ public sealed class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void Load_FileLockedByAnotherProcess_ThrowsInsteadOfReturningDefaults()
+    {
+        var store = new ConfigStore(ConfigPath);
+        store.Save(new AppConfig { Presets = [new Preset { Name = "소중한 배치" }] });
+
+        using (new FileStream(ConfigPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            Assert.Throws<ConfigUnavailableException>(() => store.Load());
+        }
+        Assert.Equal("소중한 배치", Assert.Single(store.Load().Presets).Name);
+    }
+
+    [Fact]
+    public void Load_NullCollections_AreNormalized()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(ConfigPath, """{ "Version": 1, "Presets": [ { "Name": "x", "Windows": null } ], "Settings": null }""");
+
+        var config = new ConfigStore(ConfigPath).Load();
+
+        Assert.Empty(Assert.Single(config.Presets).Windows);
+        Assert.NotNull(config.Settings);
+
+        File.WriteAllText(ConfigPath, """{ "Version": 1, "Presets": null }""");
+        Assert.Empty(new ConfigStore(ConfigPath).Load().Presets);
+    }
+
+    [Fact]
     public void Save_IsAtomic_TempThenReplace()
     {
         var store = new ConfigStore(ConfigPath); // directory does not exist yet

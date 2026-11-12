@@ -62,7 +62,13 @@ internal sealed class FakeWindowSystem : IWindowSystem
 
     public bool IsRunning(string exeName) => Running.Contains(exeName);
 
-    public void Launch(string path, string? args) => Launches.Add((path, args));
+    public bool FailLaunch { get; set; }
+
+    public void Launch(string path, string? args)
+    {
+        Launches.Add((path, args));
+        if (FailLaunch) throw new System.ComponentModel.Win32Exception(2, "The system cannot find the file specified.");
+    }
 
     private void Replace(nint hwnd, Func<WindowInfo, WindowInfo> f)
     {

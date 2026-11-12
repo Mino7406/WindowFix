@@ -31,6 +31,7 @@ public sealed class PresetCaptureTests
         Assert.Equal("Discord", d.DisplayName);
         Assert.Equal(new RelRect(1588, 0, 460, 951), p.Windows[1].Rect);
         Assert.Equal("KakaoTalk", p.Windows[1].DisplayName);
+        Assert.Equal("카카오톡", p.Windows[1].Match.SavedTitle);
     }
 
     [Fact]

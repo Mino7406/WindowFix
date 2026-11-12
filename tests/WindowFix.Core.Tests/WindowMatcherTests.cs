@@ -59,6 +59,37 @@ public sealed class WindowMatcherTests
     }
 
     [Fact]
+    public void PickBest_PrefersExactSavedTitle()
+    {
+        var chat = Win(1, exe: "KakaoTalk.exe", title: "채팅방", cls: "EVA_Window_Dblclk", w: 900, hgt: 900);
+        var main = Win(2, exe: "KakaoTalk.exe", title: "카카오톡", cls: "EVA_Window_Dblclk", w: 460, hgt: 951);
+        var m = new WindowMatch { ExeName = "KakaoTalk.exe", ClassName = "EVA_Window_Dblclk", SavedTitle = "카카오톡" };
+
+        Assert.Equal(2, WindowMatcher.PickBest(m, [chat, main], new HashSet<nint>())?.Handle);
+    }
+
+    [Fact]
+    public void IsDecoy_OtherWindowOfSameProcessHasSavedTitle_True()
+    {
+        var chat = Win(1, exe: "KakaoTalk.exe", title: "채팅방", cls: "EVA_Window_Dblclk");
+        var hiddenMain = Win(2, exe: "KakaoTalk.exe", title: "카카오톡", cls: "EVA_Window_Dblclk", visible: false);
+        var m = new WindowMatch { ExeName = "KakaoTalk.exe", ClassName = "EVA_Window_Dblclk", SavedTitle = "카카오톡" };
+
+        Assert.True(WindowMatcher.IsDecoy(m, chat, [chat, hiddenMain]));
+        Assert.False(WindowMatcher.IsDecoy(m, hiddenMain, [chat, hiddenMain]));
+    }
+
+    [Fact]
+    public void IsDecoy_NoSiblingWithSavedTitle_False()
+    {
+        var discord = Win(1, title: "#일반 - Discord");
+        var m = new WindowMatch { ExeName = "Discord.exe", SavedTitle = "감비아 - Discord" };
+
+        Assert.False(WindowMatcher.IsDecoy(m, discord, [discord]));
+        Assert.False(WindowMatcher.IsDecoy(new WindowMatch { ExeName = "Discord.exe" }, discord, [discord]));
+    }
+
+    [Fact]
     public void PickBest_SkipsTaken()
     {
         var a = Win(1, w: 1000);

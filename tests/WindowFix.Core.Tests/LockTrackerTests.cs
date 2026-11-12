@@ -152,6 +152,37 @@ public sealed class LockTrackerTests
     }
 
     [Fact]
+    public void Tracker_GivesUp_ReportsRetryAfterCooldown()
+    {
+        var moved = Discord(new PixelRect(0, 0, 10, 10));
+        for (int i = 0; i < 5; i++) _t.OnLocationChanged(moved);
+
+        var d = _t.OnLocationChanged(moved);
+
+        Assert.Equal(LockAction.None, d.Action);
+        Assert.Equal(TimeSpan.FromSeconds(60), d.RetryAfter);
+    }
+
+    [Fact]
+    public void Tracker_ShownKakaoChat_WhileMainHidden_IsIgnored()
+    {
+        var kakao = new WindowEntry
+        {
+            Match = new WindowMatch { ExeName = "KakaoTalk.exe", ClassName = "EVA_Window_Dblclk", SavedTitle = "카카오톡" },
+            Monitor = new MonitorRef { DevicePath = "dev-secondary", Width = 2560, Height = 1440 },
+            Rect = new RelRect(1588, 0, 460, 951),
+        };
+        var chat = Win(20, "KakaoTalk.exe", new PixelRect(0, 0, 400, 600), title: "채팅방", cls: "EVA_Window_Dblclk");
+        var hiddenMain = Win(9, "KakaoTalk.exe", new PixelRect(0, 0, 460, 951), title: "카카오톡", cls: "EVA_Window_Dblclk", visible: false);
+        var t = new LockTracker(new Preset { Windows = [kakao] }, () => [Primary, Secondary], new SnapBackPolicy(_clock),
+            _ => [chat, hiddenMain]);
+
+        Assert.Equal(LockAction.None, t.OnShown(chat).Action);
+        Assert.Equal(LockAction.PlaceNew, t.OnShown(hiddenMain with { IsVisible = true }).Action);
+        Assert.Equal(_clock.UtcNow, _clock.UtcNow);
+    }
+
+    [Fact]
     public void Tracker_MonitorGone_None()
     {
         var preset = new Preset { Name = "p", Windows = [_discord] };

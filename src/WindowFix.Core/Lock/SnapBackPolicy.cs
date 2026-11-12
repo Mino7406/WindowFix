@@ -45,6 +45,10 @@ public sealed class SnapBackPolicy(IClock clock, int maxReverts = 5, TimeSpan? w
         return true;
     }
 
+    /// <summary>Time until this window may be reverted again, or null when it is not cooling down.</summary>
+    public TimeSpan? CooldownRemaining(nint hwnd) =>
+        _cooldownUntil.TryGetValue(hwnd, out var until) && clock.UtcNow < until ? until - clock.UtcNow : null;
+
     public void Forget(nint hwnd)
     {
         _history.Remove(hwnd);

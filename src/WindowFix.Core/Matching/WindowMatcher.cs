@@ -18,13 +18,23 @@ public static class WindowMatcher
         return true;
     }
 
-    /// <summary>Best untaken matching window: class match first, then the largest area.</summary>
+    /// <summary>Best untaken matching window: same title as when saved first, then class match, then the largest area.</summary>
     public static WindowInfo? PickBest(WindowMatch m, IEnumerable<WindowInfo> windows, ISet<nint> taken) =>
         windows
             .Where(w => !taken.Contains(w.Handle) && Matches(m, w))
-            .OrderByDescending(w => m.ClassName is not null && w.ClassName == m.ClassName)
+            .OrderByDescending(w => m.SavedTitle is not null && w.Title == m.SavedTitle)
+            .ThenByDescending(w => m.ClassName is not null && w.ClassName == m.ClassName)
             .ThenByDescending(w => (long)w.Rect.Width * w.Rect.Height)
             .FirstOrDefault();
+
+    /// <summary>
+    /// True when <paramref name="w"/> matches only loosely and another window of the same process carries the exact
+    /// saved title — e.g. a KakaoTalk chat window while the real main window ("카카오톡") is hidden in the tray.
+    /// </summary>
+    public static bool IsDecoy(WindowMatch m, WindowInfo w, IEnumerable<WindowInfo> processWindows) =>
+        !string.IsNullOrEmpty(m.SavedTitle) && w.Title != m.SavedTitle &&
+        processWindows.Any(o => o.Handle != w.Handle && o.ProcessId == w.ProcessId && !o.IsOwned &&
+                                o.Title == m.SavedTitle && Matches(m, o));
 
     /// <summary>One match per selected window; title is filled only when the same exe was selected more than once.</summary>
     public static IReadOnlyList<WindowMatch> SuggestMatches(IReadOnlyList<WindowInfo> selected)
@@ -40,6 +50,7 @@ public static class WindowMatcher
             ExeName = w.ExeName,
             ClassName = w.ClassName,
             TitleContains = dupExes.Contains(w.ExeName) ? w.Title : null,
+            SavedTitle = w.Title,
         }).ToList();
     }
 }

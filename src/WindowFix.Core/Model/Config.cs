@@ -5,6 +5,9 @@ public sealed class WindowMatch
     public string ExeName { get; set; } = "";
     public string? TitleContains { get; set; }
     public string? ClassName { get; set; }
+
+    /// <summary>Title when the layout was saved; a tie-break hint, never a requirement.</summary>
+    public string? SavedTitle { get; set; }
 }
 
 public sealed class MonitorRef

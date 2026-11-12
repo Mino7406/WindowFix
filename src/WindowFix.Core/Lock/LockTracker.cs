@@ -9,11 +9,14 @@ public enum LockAction { None, Revert, PlaceNew }
 
 public readonly record struct LockDecision(LockAction Action, PixelRect Target, bool Maximize)
 {
+    public TimeSpan? RetryAfter { get; init; }
+
     public static LockDecision None { get; } = new(LockAction.None, default, false);
 }
 
 /// <summary>Holds which window belongs to which preset entry and decides what to do on each window event. No OS calls.</summary>
-public sealed class LockTracker(Preset preset, Func<IReadOnlyList<MonitorInfo>> monitors, SnapBackPolicy policy)
+public sealed class LockTracker(Preset preset, Func<IReadOnlyList<MonitorInfo>> monitors, SnapBackPolicy policy,
+    Func<int, IReadOnlyList<WindowInfo>>? processWindows = null)
 {
     private readonly Dictionary<nint, Guid> _bound = [];
 
@@ -32,7 +35,9 @@ public sealed class LockTracker(Preset preset, Func<IReadOnlyList<MonitorInfo>> 
         if (!WindowMatcher.IsCandidate(w)) return LockDecision.None;
 
         var boundIds = _bound.Values.ToHashSet();
-        var entry = preset.Windows.FirstOrDefault(e => !boundIds.Contains(e.Id) && WindowMatcher.Matches(e.Match, w));
+        var siblings = processWindows?.Invoke(w.ProcessId) ?? [];
+        var entry = preset.Windows.FirstOrDefault(e =>
+            !boundIds.Contains(e.Id) && WindowMatcher.Matches(e.Match, w) && !WindowMatcher.IsDecoy(e.Match, w, siblings));
         if (entry is null) return LockDecision.None;
 
         var target = TargetOf(entry);
@@ -58,7 +63,7 @@ public sealed class LockTracker(Preset preset, Func<IReadOnlyList<MonitorInfo>> 
 
         return policy.ShouldRevert(w.Handle)
             ? new LockDecision(LockAction.Revert, target.Value, entry.Maximized)
-            : LockDecision.None;
+            : LockDecision.None with { RetryAfter = policy.CooldownRemaining(w.Handle) };
     }
 
     public void OnDestroyed(nint hwnd)

@@ -123,6 +123,64 @@ public sealed class PresetApplierTests
     }
 
     [Fact]
+    public void Apply_LaunchThrows_ReportsLaunchFailedAndContinues()
+    {
+        var ws = TwoMonitors();
+        ws.FailLaunch = true;
+        ws.Add(Win(6, "b.exe", new PixelRect(0, 0, 100, 100)));
+
+        var report = new PresetApplier(ws).Apply(
+            PresetOf(Entry("Gone.exe", new RelRect(0, 0, 100, 100), launch: true), Entry("b.exe", new RelRect(0, 0, 100, 100))),
+            ApplyOptions.Full);
+
+        Assert.Equal(ApplyOutcome.LaunchFailed, report.Results[0].Outcome);
+        Assert.Equal(ApplyOutcome.Applied, report.Results[1].Outcome);
+        Assert.True(report.AllDone);
+    }
+
+    [Fact]
+    public void Apply_KakaoChatVisible_MainHidden_UnhidesMainNotChat()
+    {
+        var ws = TwoMonitors();
+        ws.Add(Win(20, "KakaoTalk.exe", new PixelRect(100, 100, 400, 600), title: "친구랑 채팅방", cls: "EVA_Window_Dblclk"));
+        ws.Add(Win(9, "KakaoTalk.exe", new PixelRect(0, 0, 460, 951), title: "카카오톡", cls: "EVA_Window_Dblclk", visible: false));
+        var e = Entry("KakaoTalk.exe", new RelRect(1588, 0, 460, 951), launch: true, cls: "EVA_Window_Dblclk");
+        e.Match.SavedTitle = "카카오톡";
+
+        var report = new PresetApplier(ws).Apply(PresetOf(e), ApplyOptions.Full);
+
+        Assert.Equal([9], ws.Shown);
+        Assert.Equal(9, Assert.Single(ws.Placements).Hwnd);
+        Assert.Equal(9, report.Results[0].Handle);
+    }
+
+    [Fact]
+    public void Apply_KakaoChatVisible_MainHidden_NoLaunchOption_LeavesChatAlone()
+    {
+        var ws = TwoMonitors();
+        ws.Add(Win(20, "KakaoTalk.exe", new PixelRect(100, 100, 400, 600), title: "친구랑 채팅방", cls: "EVA_Window_Dblclk"));
+        ws.Add(Win(9, "KakaoTalk.exe", new PixelRect(0, 0, 460, 951), title: "카카오톡", cls: "EVA_Window_Dblclk", visible: false));
+        var e = Entry("KakaoTalk.exe", new RelRect(1588, 0, 460, 951), cls: "EVA_Window_Dblclk");
+        e.Match.SavedTitle = "카카오톡";
+
+        var report = new PresetApplier(ws).Apply(PresetOf(e), ApplyOptions.Full);
+
+        Assert.Empty(ws.Placements);
+        Assert.Equal(ApplyOutcome.NotFound, report.Results[0].Outcome);
+    }
+
+    [Fact]
+    public void Apply_DiscordTitleChanged_NoSibling_StillApplied()
+    {
+        var ws = TwoMonitors();
+        ws.Add(Win(5, "Discord.exe", new PixelRect(0, 0, 100, 100), title: "#일반 | 서버 - Discord"));
+        var e = Entry("Discord.exe", new RelRect(0, 0, 100, 100));
+        e.Match.SavedTitle = "🍃 | 감비아_숲속 | 감비아 - Discord";
+
+        Assert.Equal(ApplyOutcome.Applied, new PresetApplier(ws).Apply(PresetOf(e), ApplyOptions.Full).Results[0].Outcome);
+    }
+
+    [Fact]
     public void Apply_RunningButNoWindow_WithLaunchOption_NotFoundAndNoLaunch()
     {
         var ws = TwoMonitors();
