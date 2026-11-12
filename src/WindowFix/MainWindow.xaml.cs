@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using WindowFix.Controls;
 using WindowFix.Core.Apply;
 using WindowFix.Core.Layout;
@@ -46,7 +47,14 @@ public partial class MainWindow : Window
     {
         var s = _host.Config.Settings;
         LockCheck.IsChecked = s.LockEnabled;
-        LockCheck.Content = _host.Lock.State == LockState.Paused ? "🔓 잠금 켜짐 · 일시 해제 중" : "🔒 잠금";
+        LockCheck.IsEnabled = _host.Config.Presets.Count > 0;
+        (LockLabel.Text, LockHint.Text, LockCard.Background) = _host.Lock.State switch
+        {
+            LockState.Active => ("🔒 창 고정 중", $"'{_host.CurrentPreset?.Name}' 배치를 지키고 있어요.", (Brush)new SolidColorBrush(Color.FromRgb(0xE3, 0xF6, 0xEA))),
+            LockState.Paused => ("🔓 잠깐 풀어 둠", "고정 버튼을 다시 누르면 원래 자리로 돌아가요.", new SolidColorBrush(Color.FromRgb(0xFF, 0xF4, 0xDB))),
+            _ => ("🔒 창 고정", _host.Config.Presets.Count == 0 ? "먼저 배치를 저장하세요." : "켜면 창이 저장한 자리에서 움직이지 않아요.",
+                  new SolidColorBrush(Color.FromRgb(0xEE, 0xF1, 0xFB))),
+        };
         TrayCheck.IsChecked = s.ShowTrayIcon;
         ButtonCheck.IsChecked = s.ShowLockButton;
         StartupCheck.IsChecked = Selected is { } p && s.StartupPresetId == p.Id;
@@ -59,7 +67,10 @@ public partial class MainWindow : Window
         var monitors = _host.Ws.GetMonitors();
         Preview.Monitors = monitors;
         var preset = Selected;
-        EmptyHint.Visibility = preset is null || preset.Windows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        bool empty = _host.Config.Presets.Count == 0;
+        Guide.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+        PreviewHint.Visibility = preset is { Windows.Count: > 0 } ? Visibility.Visible : Visibility.Collapsed;
+        if (empty && string.IsNullOrEmpty(StatusText.Text)) StatusText.Text = "환영해요! 가운데 안내를 따라 첫 배치를 저장해 보세요.";
         if (preset is null)
         {
             Preview.Rects = [];
@@ -86,16 +97,16 @@ public partial class MainWindow : Window
             .Select(r => $"{p.Windows.FirstOrDefault(w => w.Id == r.EntryId)?.DisplayName ?? "?"}: {Describe(r.Outcome)}")
             .ToList();
         StatusText.Text = problems.Count == 0
-            ? $"'{p.Name}' 적용 완료 ({report.Results.Count}개 창)"
-            : $"'{p.Name}' 적용 · " + string.Join(" · ", problems);
+            ? $"✔ '{p.Name}' 배치로 맞췄어요 ({report.Results.Count}개 창)."
+            : $"'{p.Name}' 배치로 맞췄어요. 단, " + string.Join(" · ", problems);
     }
 
     private static string Describe(ApplyOutcome o) => o switch
     {
-        ApplyOutcome.NotFound => "창을 찾지 못함",
-        ApplyOutcome.MonitorMissing => "모니터 없음 → 건너뜀",
-        ApplyOutcome.Failed => "옮길 수 없음(관리자 권한 창?)",
-        ApplyOutcome.LaunchedWaiting => "실행함 · 창이 뜨면 다시 적용하세요",
+        ApplyOutcome.NotFound => "창이 안 보여서 건너뛰었어요 (프로그램이 켜져 있는지 확인하세요)",
+        ApplyOutcome.MonitorMissing => "그 모니터가 연결돼 있지 않아 건너뛰었어요",
+        ApplyOutcome.Failed => "옮길 수 없었어요 (관리자 권한으로 실행된 창일 수 있어요)",
+        ApplyOutcome.LaunchedWaiting => "프로그램을 켜는 중이에요. 창이 뜨면 [이 배치로 맞추기]를 한 번 더 눌러 주세요",
         _ => "완료",
     };
 
@@ -116,7 +127,7 @@ public partial class MainWindow : Window
 
     private void OnSaveCurrent(object sender, RoutedEventArgs e)
     {
-        var preset = SaveDialog.Show(this, _host.Ws, $"프리셋 {_host.Config.Presets.Count + 1}");
+        var preset = SaveDialog.Show(this, _host.Ws, _host.Config.Presets.Count == 0 ? "평소 배치" : $"배치 {_host.Config.Presets.Count + 1}");
         if (preset is not null) AddPreset(preset);
     }
 
@@ -125,13 +136,15 @@ public partial class MainWindow : Window
         _host.Config.Presets.Add(preset);
         _host.Config.Settings.CurrentPresetId = preset.Id;
         _host.SaveConfig();
-        StatusText.Text = $"'{preset.Name}' 저장됨 ({preset.Windows.Count}개 창)";
+        StatusText.Text = _host.Config.Settings.LockEnabled
+            ? $"✔ '{preset.Name}' 저장했어요. 창 고정 중이라면 [이 배치로 맞추기]를 누르면 새 배치를 지켜요."
+            : $"✔ '{preset.Name}' 저장했어요! 이제 아래 [🔒 창 고정]을 켜면 창이 이 자리에 고정돼요.";
     }
 
     private void OnRename(object sender, RoutedEventArgs e)
     {
         if (Selected is not { } p) return;
-        var name = Microsoft.VisualBasic.Interaction.InputBox("새 이름", "프리셋 이름 변경", p.Name).Trim();
+        var name = Microsoft.VisualBasic.Interaction.InputBox("새 이름을 입력하세요.", "배치 이름 바꾸기", p.Name).Trim();
         if (name.Length == 0) return;
         p.Name = name;
         _host.SaveConfig();
@@ -140,7 +153,7 @@ public partial class MainWindow : Window
     private void OnDelete(object sender, RoutedEventArgs e)
     {
         if (Selected is not { } p) return;
-        if (MessageBox.Show(this, $"'{p.Name}' 프리셋을 삭제할까요?", "프리셋 삭제",
+        if (MessageBox.Show(this, $"'{p.Name}' 배치를 삭제할까요?\n(창이나 프로그램은 그대로 있어요. 저장한 자리 정보만 지워져요.)", "배치 삭제",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         _host.Config.Presets.Remove(p);
         var s = _host.Config.Settings;
@@ -158,7 +171,9 @@ public partial class MainWindow : Window
         if (on && Selected is { } p && _host.Config.Settings.CurrentPresetId != p.Id)
             _host.Config.Settings.CurrentPresetId = p.Id; // lock the preset the user is looking at
         _host.SetLockEnabled(on);
-        StatusText.Text = on ? $"잠금 켜짐: '{_host.CurrentPreset?.Name}'" : "잠금 꺼짐";
+        StatusText.Text = on
+            ? $"🔒 '{_host.CurrentPreset?.Name}' 배치를 고정했어요. 이 창을 닫아도 계속 지켜요. 컴퓨터를 다시 켜도 자동으로 켜져요."
+            : "창 고정을 껐어요. 이제 창을 자유롭게 옮길 수 있어요.";
     }
 
     private void OnTrayClick(object sender, RoutedEventArgs e)
@@ -190,6 +205,7 @@ public partial class MainWindow : Window
         EditPanel.Visibility = entry is null ? Visibility.Collapsed : Visibility.Visible;
         if (entry is null) return;
 
+        EditTitle.Text = $"{entry.DisplayName} 설정";
         NameBox.Text = entry.DisplayName;
         XBox.Text = entry.Rect.X.ToString();
         YBox.Text = entry.Rect.Y.ToString();
@@ -205,6 +221,8 @@ public partial class MainWindow : Window
 
     private void SelectEntry(Guid id) => SelectEntry((Guid?)id);
 
+    private void OnEditClose(object sender, RoutedEventArgs e) => SelectEntry(null);
+
     private void OnEntrySave(object sender, RoutedEventArgs e)
     {
         var entry = _selectedEntry is { } id ? Selected?.Windows.FirstOrDefault(w => w.Id == id) : null;
@@ -212,7 +230,7 @@ public partial class MainWindow : Window
         if (!int.TryParse(XBox.Text, out int x) || !int.TryParse(YBox.Text, out int y) ||
             !int.TryParse(WBox.Text, out int w) || !int.TryParse(HBox.Text, out int h) || w < 1 || h < 1)
         {
-            StatusText.Text = "위치와 크기는 숫자로 입력하세요 (너비·높이는 1 이상).";
+            StatusText.Text = "위치와 크기에는 숫자만 넣어 주세요 (너비·높이는 1 이상).";
             return;
         }
 
@@ -226,7 +244,7 @@ public partial class MainWindow : Window
         _host.SaveConfig();
         _host.RefreshLock();
         SelectEntry(entry.Id);
-        StatusText.Text = $"'{entry.DisplayName}' 설정 저장됨";
+        StatusText.Text = $"✔ '{entry.DisplayName}' 설정을 저장했어요. [이 배치로 맞추기]를 누르면 바로 반영돼요.";
     }
 
     private void OnEntryRemove(object sender, RoutedEventArgs e)
