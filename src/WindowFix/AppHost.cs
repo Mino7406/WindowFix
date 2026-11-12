@@ -68,6 +68,7 @@ public sealed class AppHost : IDisposable
             return;
         }
         SyncRunKey(); // the exe may have been moved since the last save
+        ThemeManager.Init(() => Config.Settings.Theme);
         _tray = new Tray.TrayIcon(this);
         Lock.StateChanged += _ => UpdateOverlays();
         ConfigChanged += UpdateOverlays;

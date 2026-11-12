@@ -56,15 +56,16 @@ public sealed class MonitorPreview : FrameworkElement
         double ox = (ActualWidth - (maxX - minX) * scale) / 2, oy = (ActualHeight - (maxY - minY) * scale) / 2;
         Rect Map(PixelRect r) => new(ox + (r.X - minX) * scale, oy + (r.Y - minY) * scale, r.Width * scale, r.Height * scale);
 
-        var monitorFill = new SolidColorBrush(Color.FromRgb(0x23, 0x26, 0x2C));
-        var monitorPen = new Pen(new SolidColorBrush(Color.FromRgb(0x6B, 0x70, 0x7A)), 2);
+        var monitorFill = TryFindResource("Monitor.Fill") as Brush ?? Brushes.DimGray;
+        var monitorPen = new Pen(TryFindResource("Monitor.Stroke") as Brush ?? Brushes.Gray, 1.5);
+        var labelBrush = TryFindResource("Monitor.Label") as Brush ?? Brushes.Gray;
         int index = 1;
         foreach (var m in _monitors.OrderBy(m => m.Bounds.X).ThenBy(m => m.Bounds.Y))
         {
             var r = Map(m.Bounds);
-            dc.DrawRoundedRectangle(monitorFill, monitorPen, r, 4, 4);
+            dc.DrawRoundedRectangle(monitorFill, monitorPen, r, 6, 6);
             DrawText(dc, $"모니터 {index++}{(m.IsPrimary ? " (메인)" : "")} · {m.Bounds.Width}×{m.Bounds.Height}",
-                new Point(r.X + 6, r.Y + 4), 11, Brushes.Gray, r.Width - 12);
+                new Point(r.X + 8, r.Y + 6), 11, labelBrush, r.Width - 16);
         }
 
         foreach (var pr in _rects)

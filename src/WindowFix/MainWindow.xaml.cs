@@ -7,6 +7,7 @@ using WindowFix.Core.Layout;
 using WindowFix.Core.Lock;
 using WindowFix.Core.Matching;
 using WindowFix.Core.Model;
+using ThemeMode = WindowFix.Core.Model.ThemeMode;
 
 namespace WindowFix;
 
@@ -21,6 +22,8 @@ public partial class MainWindow : Window
     {
         _host = host;
         InitializeComponent();
+        SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
+        ThemeManager.Changed += () => { Preview.InvalidateVisual(); RefreshToggles(); };
         Preview.RectClicked += SelectEntry;
         _host.ConfigChanged += () => Dispatcher.Invoke(RefreshAll);
         _host.Lock.StateChanged += _ => Dispatcher.Invoke(RefreshToggles);
@@ -28,7 +31,7 @@ public partial class MainWindow : Window
         RefreshAll();
     }
 
-    private Preset? Selected => PresetCombo.SelectedItem as Preset;
+    private Preset? Selected => PresetList.SelectedItem as Preset;
 
     // ---------- refresh ----------
 
@@ -38,9 +41,9 @@ public partial class MainWindow : Window
         // Keep showing the layout the user picked; fall back to the current one (e.g. after a delete or a new save).
         var keep = Selected is { } sel && _host.Config.Presets.Contains(sel) && !_selectCurrentOnRefresh ? sel : _host.CurrentPreset;
         _selectCurrentOnRefresh = false;
-        PresetCombo.ItemsSource = null;
-        PresetCombo.ItemsSource = _host.Config.Presets;
-        PresetCombo.SelectedItem = keep;
+        PresetList.ItemsSource = null;
+        PresetList.ItemsSource = _host.Config.Presets;
+        PresetList.SelectedItem = keep;
         _refreshing = false;
         RefreshPreview();
         RefreshToggles();
@@ -49,20 +52,56 @@ public partial class MainWindow : Window
     private void RefreshToggles()
     {
         var s = _host.Config.Settings;
+        bool has = Selected is not null;
         LockCheck.IsChecked = s.LockEnabled;
         LockCheck.IsEnabled = _host.Config.Presets.Count > 0;
-        (LockLabel.Text, LockHint.Text, LockCard.Background) = _host.Lock.State switch
+        PresetTitle.Text = Selected?.Name ?? "배치 없음";
+        bool locksThis = has && _host.CurrentPreset?.Id == Selected!.Id;
+        var (label, hint, bg, border, chip, chipBg, chipFg) = _host.Lock.State switch
         {
-            LockState.Active => ("🔒 창 고정 중", $"'{_host.CurrentPreset?.Name}' 배치를 지키고 있어요.", (Brush)new SolidColorBrush(Color.FromRgb(0xE3, 0xF6, 0xEA))),
-            LockState.Paused => ("🔓 잠깐 풀어 둠", "고정 버튼을 다시 누르면 원래 자리로 돌아가요.", new SolidColorBrush(Color.FromRgb(0xFF, 0xF4, 0xDB))),
+            LockState.Active => ("🔒 창 고정 중", $"'{_host.CurrentPreset?.Name}' 배치를 지키고 있어요.", "Lock.Active.Bg", "Lock.Active.Border",
+                locksThis ? "● 고정 중" : "", "Chip.Active.Bg", "Chip.Active.Fg"),
+            LockState.Paused => ("🔓 잠깐 풀어 둠", "고정 탭을 다시 누르면 원래 자리로 돌아가요.", "Lock.Paused.Bg", "Lock.Paused.Border",
+                locksThis ? "잠깐 풀어 둠" : "", "Chip.Paused.Bg", "Chip.Paused.Fg"),
             _ => ("🔒 창 고정", _host.Config.Presets.Count == 0 ? "먼저 배치를 저장하세요." : "켜면 창이 저장한 자리에서 움직이지 않아요.",
-                  new SolidColorBrush(Color.FromRgb(0xEE, 0xF1, 0xFB))),
+                "Lock.Off.Bg", "Lock.Off.Border", has ? "고정 안 함" : "", "Chip.Off.Bg", "Chip.Off.Fg"),
         };
+        LockLabel.Text = label;
+        LockHint.Text = hint;
+        LockCard.SetResourceReference(Border.BackgroundProperty, bg);
+        LockCard.SetResourceReference(Border.BorderBrushProperty, border);
+        StatusChipText.Text = chip;
+        StatusChip.Visibility = chip.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        StatusChip.SetResourceReference(Border.BackgroundProperty, chipBg);
+        StatusChipText.SetResourceReference(TextBlock.ForegroundProperty, chipFg);
+
         TrayCheck.IsChecked = s.ShowTrayIcon;
         ButtonCheck.IsChecked = s.ShowLockButton;
-        StartupCheck.IsChecked = Selected is { } p && s.StartupPresetId == p.Id;
-        bool has = Selected is not null;
-        ApplyButton.IsEnabled = RenameButton.IsEnabled = DeleteButton.IsEnabled = StartupCheck.IsEnabled = has;
+        var current = _host.CurrentPreset;
+        StartupCheck.IsChecked = current is not null && s.StartupPresetId == current.Id;
+        StartupCheck.IsEnabled = current is not null;
+        StartupLabel.Text = current is null ? "컴퓨터 켤 때 배치 맞추기" : $"컴퓨터 켤 때 '{current.Name}' 배치로 맞추기";
+        ThemeSystem.IsChecked = s.Theme == Core.Model.ThemeMode.System;
+        ThemeLight.IsChecked = s.Theme == Core.Model.ThemeMode.Light;
+        ThemeDark.IsChecked = s.Theme == Core.Model.ThemeMode.Dark;
+        ApplyButton.IsEnabled = RenameButton.IsEnabled = DeleteButton.IsEnabled = has;
+    }
+
+    private void ShowSettings(bool on)
+    {
+        SettingsPage.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        LayoutPage.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+        SettingsNav.IsChecked = on;
+        if (on) PresetList.SelectedItem = null;
+    }
+
+    private void OnSettingsNav(object sender, RoutedEventArgs e) => ShowSettings(true);
+
+    private void OnThemeClick(object sender, RoutedEventArgs e)
+    {
+        _host.Config.Settings.Theme = sender == ThemeLight ? Core.Model.ThemeMode.Light : sender == ThemeDark ? Core.Model.ThemeMode.Dark : Core.Model.ThemeMode.System;
+        _host.SaveConfig();
+        ThemeManager.Reapply();
     }
 
     private void RefreshPreview()
@@ -119,6 +158,8 @@ public partial class MainWindow : Window
     private void OnPresetSelected(object sender, SelectionChangedEventArgs e)
     {
         if (_refreshing) return;
+        if (Selected is null) return; // cleared while the settings page is shown
+        ShowSettings(false);
         SelectEntry(null);
         RefreshPreview();
         RefreshToggles();
@@ -207,7 +248,7 @@ public partial class MainWindow : Window
 
     private void OnStartupClick(object sender, RoutedEventArgs e)
     {
-        if (Selected is not { } p) return;
+        if (_host.CurrentPreset is not { } p) return;
         _host.Config.Settings.StartupPresetId = StartupCheck.IsChecked == true ? p.Id : null;
         _host.SaveConfig();
     }
