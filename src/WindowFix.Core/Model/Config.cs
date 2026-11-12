@@ -38,8 +38,23 @@ public sealed class Preset
     public List<WindowEntry> Windows { get; set; } = [];
 }
 
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ThemeMode>))]
+public enum ThemeMode { System, Light, Dark }
+
+public static class ThemeResolver
+{
+    /// <summary>Whether to show the dark theme; <paramref name="systemDark"/> is Windows' app mode.</summary>
+    public static bool IsDark(ThemeMode mode, bool systemDark) => mode switch
+    {
+        ThemeMode.Dark => true,
+        ThemeMode.Light => false,
+        _ => systemDark,
+    };
+}
+
 public sealed class AppSettings
 {
+    public ThemeMode Theme { get; set; } = ThemeMode.System;
     public bool LockEnabled { get; set; }
     public Guid? CurrentPresetId { get; set; }
     public Guid? StartupPresetId { get; set; }
