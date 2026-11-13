@@ -22,20 +22,23 @@ public partial class SaveDialog : Window
 {
     private readonly IWindowSystem _ws;
     private readonly Preset? _editing;
+    private readonly string? _monitorPath; // edit mode: only this monitor is shown and changed
     private IReadOnlyList<MonitorInfo> _monitors = [];
     private List<Candidate> _items = [];
 
-    private SaveDialog(IWindowSystem ws, string defaultName, Preset? editing)
+    private SaveDialog(IWindowSystem ws, string defaultName, Preset? editing, string? monitorPath = null)
     {
         _ws = ws;
         _editing = editing;
+        _monitorPath = monitorPath;
         InitializeComponent();
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
         if (editing is not null)
         {
-            Title = $"'{editing.Name}' 배치 수정";
-            HeaderText.Text = "이 배치에 넣을 창을 고르세요";
-            SubText.Text = "체크한 창들의 지금 위치와 크기로 배치가 바뀌어요. 수정하는 동안은 창 고정이 잠깐 풀려 있으니, 창을 원하는 자리로 옮긴 뒤 [↻ 지금 위치 다시 읽기]를 누르세요.";
+            var label = MonitorLabel(ws.GetMonitors(), monitorPath);
+            Title = $"'{editing.Name}' 배치 수정 · {label}";
+            HeaderText.Text = $"{label}에 둘 창을 고르세요";
+            SubText.Text = $"체크한 창들의 지금 위치와 크기로 {label} 배치가 바뀌어요. 다른 모니터에 저장된 창은 그대로예요. 수정하는 동안은 창 고정이 잠깐 풀려 있으니, 창을 옮긴 뒤 [↻ 지금 위치 다시 읽기]를 누르세요.";
             SaveButton.Content = "변경 저장";
         }
         else
@@ -61,9 +64,9 @@ public partial class SaveDialog : Window
     }
 
     /// <summary>Edit <paramref name="preset"/> in place from the windows on screen; false when cancelled.</summary>
-    public static bool Edit(Window owner, IWindowSystem ws, Preset preset)
+    public static bool Edit(Window owner, IWindowSystem ws, Preset preset, string monitorPath)
     {
-        var dlg = new SaveDialog(ws, preset.Name, preset) { Owner = owner };
+        var dlg = new SaveDialog(ws, preset.Name, preset, monitorPath) { Owner = owner };
         return dlg.ShowDialog() == true;
     }
 
@@ -72,6 +75,7 @@ public partial class SaveDialog : Window
         _monitors = _ws.GetMonitors();
         var windows = _ws.GetWindows(includeHidden: false)
             .Where(w => WindowMatcher.IsCandidate(w) && w.ProcessId != Environment.ProcessId && !w.IsMinimized)
+            .Where(OnEditedMonitor)
             .ToList();
 
         ISet<nint> preselected;
@@ -80,7 +84,7 @@ public partial class SaveDialog : Window
         {
             // the windows the layout's entries resolve to right now
             var taken = new HashSet<nint>();
-            foreach (var e in _editing.Windows)
+            foreach (var e in _editing.Windows.Where(EntryOnEditedMonitor))
                 if (WindowMatcher.PickBest(e.Match, windows, taken) is { } w) taken.Add(w.Handle);
             preselected = taken;
         }
@@ -105,8 +109,21 @@ public partial class SaveDialog : Window
         }).OrderByDescending(c => c.IsChecked).ToList();
 
         WindowList.ItemsSource = _items;
-        Preview.Monitors = _monitors;
+        Preview.Monitors = _monitorPath is null ? _monitors : _monitors.Where(m => m.DevicePath == _monitorPath).ToList();
         Refresh();
+    }
+
+    private bool OnEditedMonitor(WindowInfo w) =>
+        _monitorPath is null || Placement.MonitorOf(w.Rect, _monitors).DevicePath == _monitorPath;
+
+    private bool EntryOnEditedMonitor(WindowEntry e) =>
+        _monitorPath is null || MonitorResolver.Resolve(e.Monitor, _monitors)?.DevicePath == _monitorPath;
+
+    private static string MonitorLabel(IReadOnlyList<MonitorInfo> monitors, string? path)
+    {
+        var ordered = monitors.OrderBy(m => m.Bounds.X).ThenBy(m => m.Bounds.Y).ToList();
+        int i = ordered.FindIndex(m => m.DevicePath == path);
+        return i < 0 ? "이 모니터" : $"모니터 {i + 1}";
     }
 
     private void OnRescan(object sender, RoutedEventArgs e) =>
@@ -121,7 +138,7 @@ public partial class SaveDialog : Window
             .ToList();
         int n = _items.Count(c => c.IsChecked);
         CountText.Text = $"{n}개 창 선택됨";
-        SaveButton.IsEnabled = n > 0 && NameBox.Text.Trim().Length > 0;
+        SaveButton.IsEnabled = (n > 0 || _editing is not null) && NameBox.Text.Trim().Length > 0;
     }
 
     private void OnNameChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
@@ -132,7 +149,7 @@ public partial class SaveDialog : Window
     private void OnSave(object sender, RoutedEventArgs e)
     {
         var selected = _items.Where(c => c.IsChecked).Select(c => c.Window).ToList();
-        if (selected.Count == 0 || NameBox.Text.Trim().Length == 0) return;
+        if ((selected.Count == 0 && _editing is null) || NameBox.Text.Trim().Length == 0) return;
         var fresh = PresetCapture.Capture(NameBox.Text.Trim(), selected, _monitors);
         if (_editing is null)
         {
@@ -145,10 +162,12 @@ public partial class SaveDialog : Window
         var windows = _ws.GetWindows(includeHidden: false);
         var taken = new HashSet<nint>();
         var oldByHandle = new Dictionary<nint, WindowEntry>();
-        foreach (var old in _editing.Windows)
+        var onThisMonitor = _editing.Windows.Where(EntryOnEditedMonitor).ToList();
+        foreach (var old in onThisMonitor)
             if (WindowMatcher.PickBest(old.Match, windows, taken) is { } w) { taken.Add(w.Handle); oldByHandle[w.Handle] = old; }
 
-        var merged = new List<WindowEntry>();
+        // windows saved on other monitors stay exactly as they were
+        var merged = _editing.Windows.Where(e => !onThisMonitor.Contains(e)).ToList();
         for (int i = 0; i < selected.Count; i++)
         {
             var neu = fresh.Windows[i];

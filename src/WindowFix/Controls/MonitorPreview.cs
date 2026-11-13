@@ -229,8 +229,8 @@ public sealed class MonitorPreview : FrameworkElement
         _animating = false;
     }
 
-    /// <summary>Left click on a monitor frame (the grey stage around the monitors does nothing).</summary>
-    public event Action? Clicked;
+    /// <summary>Left click on a monitor frame, with that monitor's device path (the grey stage does nothing).</summary>
+    public event Action<string>? MonitorClicked;
 
     /// <summary>Right click on a window tile.</summary>
     public event Action<Guid>? RectRightClicked;
@@ -246,7 +246,7 @@ public sealed class MonitorPreview : FrameworkElement
     {
         var id = HitTest(e.GetPosition(this));
         if (ClickSelectsRects) { if (id != Guid.Empty) RectClicked?.Invoke(id); }
-        else if (_monitorRects.Any(m => m.Rect.Contains(e.GetPosition(this)))) Clicked?.Invoke();
+        else if (_monitorRects.FirstOrDefault(m => m.Rect.Contains(e.GetPosition(this))).Path is { } path) MonitorClicked?.Invoke(path);
         base.OnMouseLeftButtonDown(e);
     }
 

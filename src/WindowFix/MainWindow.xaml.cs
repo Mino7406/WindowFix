@@ -25,7 +25,7 @@ public partial class MainWindow : Window
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
         ThemeManager.Changed += () => { Preview.InvalidateVisual(); RefreshPreview(); RefreshToggles(); };
         Preview.ClickSelectsRects = false;
-        Preview.Clicked += EditLayout;
+        Preview.MonitorClicked += EditLayout;
         Preview.RectRightClicked += id => SelectEntry(id);
         _host.ConfigChanged += () => Dispatcher.Invoke(RefreshAll);
         _host.Lock.StateChanged += _ => Dispatcher.Invoke(RefreshToggles);
@@ -291,12 +291,12 @@ public partial class MainWindow : Window
     /// Click on a monitor: edit the layout shown. While the editor is open the lock is paused so windows can be moved;
     /// afterwards it re-locks to the saved (or unchanged, if cancelled) positions.
     /// </summary>
-    private void EditLayout()
+    private void EditLayout(string monitorPath)
     {
         if (Selected is not { } p) return;
         bool pausedHere = _host.Lock.State == LockState.Active; // any lock would fight the windows being moved
         if (pausedHere) _host.Lock.TogglePause();
-        bool saved = SaveDialog.Edit(this, _host.Ws, p);
+        bool saved = SaveDialog.Edit(this, _host.Ws, p, monitorPath);
         if (saved) _host.SaveConfig();
         if (pausedHere && _host.Lock.State == LockState.Paused) _host.Lock.TogglePause();
         else if (saved) _host.RefreshLock();
