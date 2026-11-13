@@ -40,3 +40,19 @@ dotnet publish src/WindowFix -c Release -r win-x64 -o publish
 - `src/WindowFix` — WPF 화면 (메인 창, 저장 창, 고정 탭, 트레이 아이콘)
 - `tests/WindowFix.Core.Tests` — xUnit 테스트
 - `docs/superpowers/specs` — 설계 문서, `docs/manual-test-checklist.md` — 직접 확인할 목록
+
+## 새 버전 배포(릴리스) 방법
+
+WindowFix는 켤 때와 하루 한 번 GitHub의 최신 릴리스를 확인하고, 새 버전이 있으면 화면 위에 알려 줘요. [업데이트]를 누르면 새 exe를 받아 바꾼 뒤 다시 켜요. 저장한 배치와 설정은 그대로 남아요.
+
+1. `src/WindowFix/WindowFix.csproj`의 `<Version>`을 올려요. 예: `0.1.0` → `0.2.0`
+2. exe를 만들어요.
+
+```bash
+dotnet publish src/WindowFix -c Release -r win-x64 -o publish
+```
+
+3. GitHub에서 **Releases → Draft a new release**를 열어요.
+   - 태그: `v0.2.0` (`<Version>`과 같은 숫자, 앞에 `v`)
+   - 파일: `publish/WindowFix.exe`를 **이름 그대로** 올려요.
+   - "Set as a pre-release"는 끄고 **Publish release**를 눌러요. 임시 저장이나 미리보기 릴리스는 업데이트로 안내되지 않아요.
