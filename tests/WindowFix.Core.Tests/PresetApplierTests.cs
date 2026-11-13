@@ -222,6 +222,31 @@ public sealed class PresetApplierTests
     }
 
     [Fact]
+    public void Apply_ElevatedWindowRefuses_ReportsNeedsAdmin()
+    {
+        var ws = TwoMonitors();
+        ws.Add(Win(5, "MapleStory.exe", new PixelRect(0, 0, 100, 100)) with { IsElevated = true });
+        ws.FailPlacement.Add(5);
+
+        var report = new PresetApplier(ws).Apply(PresetOf(Entry("MapleStory.exe", new RelRect(0, 0, 100, 100))), ApplyOptions.Full);
+
+        Assert.Equal(ApplyOutcome.NeedsAdmin, report.Results[0].Outcome);
+        Assert.True(report.AllDone);
+    }
+
+    [Fact]
+    public void Apply_ElevatedWindow_WhenWeAreElevatedToo_PlainFailure()
+    {
+        var ws = TwoMonitors();
+        ws.SelfElevated = true;
+        ws.Add(Win(5, "MapleStory.exe", new PixelRect(0, 0, 100, 100)) with { IsElevated = true });
+        ws.FailPlacement.Add(5);
+
+        Assert.Equal(ApplyOutcome.Failed,
+            new PresetApplier(ws).Apply(PresetOf(Entry("MapleStory.exe", new RelRect(0, 0, 100, 100))), ApplyOptions.Full).Results[0].Outcome);
+    }
+
+    [Fact]
     public void Apply_MaximizedEntry_PassesMaximizeTrue()
     {
         var ws = TwoMonitors();

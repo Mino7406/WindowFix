@@ -146,4 +146,9 @@ internal static class NativeMethods
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] public static extern bool QueryFullProcessImageName(nint hProcess, uint flags, StringBuilder name, ref uint size);
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(nint h);
     [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+    [DllImport("kernel32.dll")] public static extern nint GetCurrentProcess();
+    [DllImport("advapi32.dll", SetLastError = true)] public static extern bool OpenProcessToken(nint process, uint access, out nint token);
+    [DllImport("advapi32.dll", SetLastError = true)] public static extern bool GetTokenInformation(nint token, int infoClass, out int info, int length, out int returned);
+    public const uint TOKEN_QUERY = 0x0008;
+    public const int TokenElevation = 20;
 }

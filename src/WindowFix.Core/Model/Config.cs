@@ -55,6 +55,9 @@ public static class ThemeResolver
 public sealed class AppSettings
 {
     public ThemeMode Theme { get; set; } = ThemeMode.System;
+
+    /// <summary>Run WindowFix elevated (needed to move windows of admin apps such as some games); boot via a scheduled task.</summary>
+    public bool AlwaysAdmin { get; set; }
     public bool LockEnabled { get; set; }
     public Guid? CurrentPresetId { get; set; }
     public Guid? StartupPresetId { get; set; }

@@ -8,24 +8,58 @@ namespace WindowFix.Core.Platform;
 
 public sealed class Win32WindowSystem : IWindowSystem
 {
+    public bool SelfElevated { get; } = TokenIsElevated(GetCurrentProcess()) ?? false;
+
+    /// <summary>
+    /// Elevation of another process. If we can't even read its token (admin or protected process, typical for games
+    /// with anti-cheat) while we are not elevated, treat it as elevated: that is exactly the case we can't move.
+    /// </summary>
+    private bool IsProcessElevated(uint pid)
+    {
+        var h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (h == 0) return !SelfElevated;
+        try
+        {
+            return TokenIsElevated(h) ?? !SelfElevated;
+        }
+        finally
+        {
+            CloseHandle(h);
+        }
+    }
+
+    private static bool? TokenIsElevated(nint process)
+    {
+        if (!OpenProcessToken(process, TOKEN_QUERY, out var token)) return null;
+        try
+        {
+            return GetTokenInformation(token, TokenElevation, out int elevated, sizeof(int), out _) ? elevated != 0 : null;
+        }
+        finally
+        {
+            CloseHandle(token);
+        }
+    }
+
     public IReadOnlyList<WindowInfo> GetWindows(bool includeHidden)
     {
         var handles = new List<nint>();
         EnumWindows((h, _) => { handles.Add(h); return true; }, 0);
 
         var exeCache = new Dictionary<uint, string?>();
+        var elevCache = new Dictionary<uint, bool>();
         var result = new List<WindowInfo>(handles.Count);
         foreach (var h in handles)
         {
             if (!includeHidden && !IsWindowVisible(h)) continue;
-            var info = Describe(h, exeCache);
+            var info = Describe(h, exeCache, elevCache);
             if (info is not null) result.Add(info);
         }
         return result;
     }
 
     public WindowInfo? GetWindow(nint hwnd) =>
-        IsWindow(hwnd) ? Describe(hwnd, new Dictionary<uint, string?>()) : null;
+        IsWindow(hwnd) ? Describe(hwnd, new Dictionary<uint, string?>(), new Dictionary<uint, bool>()) : null;
 
     public IReadOnlyList<MonitorInfo> GetMonitors()
     {
@@ -104,7 +138,7 @@ public sealed class Win32WindowSystem : IWindowSystem
 
     // ---- helpers ----
 
-    private static WindowInfo? Describe(nint h, Dictionary<uint, string?> exeCache)
+    private WindowInfo? Describe(nint h, Dictionary<uint, string?> exeCache, Dictionary<uint, bool> elevCache)
     {
         if (!GetWindowRect(h, out var r)) return null;
         GetWindowThreadProcessId(h, out var pid);
@@ -130,7 +164,8 @@ public sealed class Win32WindowSystem : IWindowSystem
             IsOwned: NativeMethods.GetWindow(h, GW_OWNER) != 0,
             IsToolWindow: (exStyle & WS_EX_TOOLWINDOW) != 0,
             IsCloaked: cloaked != 0,
-            ProcessId: (int)pid);
+            ProcessId: (int)pid,
+            IsElevated: elevCache.TryGetValue(pid, out var el) ? el : elevCache[pid] = IsProcessElevated(pid));
     }
 
     private static string GetText(nint h)

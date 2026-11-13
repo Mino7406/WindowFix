@@ -64,6 +64,8 @@ internal sealed class FakeWindowSystem : IWindowSystem
 
     public bool FailLaunch { get; set; }
 
+    public bool SelfElevated { get; set; }
+
     public void Launch(string path, string? args)
     {
         Launches.Add((path, args));

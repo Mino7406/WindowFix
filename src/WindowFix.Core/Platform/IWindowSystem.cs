@@ -13,6 +13,9 @@ public interface IWindowSystem
     bool SetPlacement(nint hwnd, PixelRect rect, bool maximize);
 
     bool Show(nint hwnd);
+
+    /// <summary>Whether WindowFix itself runs elevated (admin).</summary>
+    bool SelfElevated { get; }
     bool IsRunning(string exeName);
     void Launch(string path, string? args);
 }

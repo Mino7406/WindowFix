@@ -25,4 +25,5 @@ public sealed record WindowInfo(
     bool IsOwned,
     bool IsToolWindow,
     bool IsCloaked,
-    int ProcessId);
+    int ProcessId,
+    bool IsElevated = false);

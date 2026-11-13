@@ -5,13 +5,13 @@ using WindowFix.Core.Platform;
 
 namespace WindowFix.Core.Apply;
 
-public enum ApplyOutcome { Applied, NotFound, MonitorMissing, Failed, LaunchedWaiting, LaunchFailed }
+public enum ApplyOutcome { Applied, NotFound, MonitorMissing, Failed, LaunchedWaiting, LaunchFailed, NeedsAdmin }
 
 public sealed record EntryResult(Guid EntryId, ApplyOutcome Outcome, nint Handle);
 
 public sealed record ApplyReport(IReadOnlyList<EntryResult> Results)
 {
-    public bool AllDone => Results.All(r => r.Outcome is ApplyOutcome.Applied or ApplyOutcome.MonitorMissing or ApplyOutcome.Failed or ApplyOutcome.LaunchFailed);
+    public bool AllDone => Results.All(r => r.Outcome is ApplyOutcome.Applied or ApplyOutcome.MonitorMissing or ApplyOutcome.Failed or ApplyOutcome.LaunchFailed or ApplyOutcome.NeedsAdmin);
 }
 
 public sealed record ApplyOptions(bool Unhide, bool Launch)
@@ -67,7 +67,10 @@ public sealed class PresetApplier(IWindowSystem ws)
             }
 
             taken.Add(w.Handle);
-            results.Add(new(e.Id, ws.SetPlacement(w.Handle, TargetRect(e, monitor), e.Maximized) ? ApplyOutcome.Applied : ApplyOutcome.Failed, w.Handle));
+            var outcome = ws.SetPlacement(w.Handle, TargetRect(e, monitor), e.Maximized) ? ApplyOutcome.Applied
+                : w.IsElevated && !ws.SelfElevated ? ApplyOutcome.NeedsAdmin // Windows blocks normal apps from moving admin windows
+                : ApplyOutcome.Failed;
+            results.Add(new(e.Id, outcome, w.Handle));
         }
         return new ApplyReport(results);
     }
