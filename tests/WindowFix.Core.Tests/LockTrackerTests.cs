@@ -201,6 +201,20 @@ public sealed class LockTrackerTests
     }
 
     [Fact]
+    public void Tracker_HasUnboundEntries_TracksBinding()
+    {
+        var preset = new Preset { Name = "p", Windows = [_discord] };
+        var t = new LockTracker(preset, () => [Primary, Secondary], new SnapBackPolicy(_clock));
+        Assert.True(t.HasUnboundEntries);
+
+        t.BindInitial([new EntryResult(_discord.Id, ApplyOutcome.Applied, 5)]);
+        Assert.False(t.HasUnboundEntries); // nothing left to look for: new windows can be ignored
+
+        t.OnDestroyed(5);
+        Assert.True(t.HasUnboundEntries);
+    }
+
+    [Fact]
     public void Tracker_MonitorGone_None()
     {
         var preset = new Preset { Name = "p", Windows = [_discord] };

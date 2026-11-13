@@ -65,7 +65,8 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
                 if (bound && !_dragging.Contains(hwnd)) Schedule(hwnd, shown: false);
                 break;
             case EVENT_OBJECT_SHOW:
-                if (GetAncestor(hwnd, GA_ROOT) == hwnd) Schedule(hwnd, shown: true);
+                // tooltips, menus and the like show constantly; ignore them unless something is still unaccounted for
+                if ((bound || tracker.HasUnboundEntries) && GetAncestor(hwnd, GA_ROOT) == hwnd) Schedule(hwnd, shown: true);
                 break;
             case EVENT_OBJECT_DESTROY:
                 if (bound) Forget(hwnd);

@@ -18,7 +18,7 @@ namespace WindowFix;
 /// </summary>
 public partial class FloatingLockButton : Window
 {
-    private const double TabThicknessDip = 22, TabLengthDip = 56, Radius = 9;
+    private const double TabThicknessDip = 22, TabLengthDip = 56, Radius = 9, SliverDip = 6;
     private static readonly Duration Quick = new(TimeSpan.FromMilliseconds(140));
     private static readonly TimeSpan SlideTime = TimeSpan.FromMilliseconds(220);
 
@@ -40,6 +40,7 @@ public partial class FloatingLockButton : Window
     private readonly AppHost _host;
     private Point? _downAt;
     private bool _placed;
+    private bool _dragging;
     private DateTime _lastToggle = DateTime.MinValue;
 
     public FloatingLockButton(AppHost host)
@@ -51,29 +52,53 @@ public partial class FloatingLockButton : Window
             long ex = GetWindowLongPtr(Hwnd, GWL_EXSTYLE);
             SetWindowLongPtr(Hwnd, GWL_EXSTYLE, (nint)(ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW));
         };
-        MouseEnter += (_, _) => FadeTo(1.0);
-        MouseLeave += (_, _) => { if (_slide is null) FadeTo(RestingOpacity); };
+        MouseEnter += (_, _) => SetExpanded(true);
+        MouseLeave += (_, _) => { if (_slide is null && !_dragging) SetExpanded(ShouldStayOpen); };
         Update(host.Lock.State);
         ApplyCorners();
     }
 
     private nint Hwnd => new WindowInteropHelper(this).Handle;
-    private double RestingOpacity => _host.Lock.State == LockState.Paused ? 0.92 : 0.55;
+    /// <summary>Paused stays open so it's obvious the windows are free to move.</summary>
+    private bool ShouldStayOpen => _host.Lock.State == LockState.Paused;
 
     public void Update(LockState state)
     {
         bool paused = state == LockState.Paused;
-        var bottom = paused ? Color.FromRgb(0xF0, 0x8A, 0x3C) : Color.FromRgb(0x3B, 0x5B, 0xDB);
-        FillTop.Color = paused ? Color.FromRgb(0xFF, 0xB4, 0x5E) : Color.FromRgb(0x6E, 0x8B, 0xFF);
-        FillBottom.Color = bottom;
-        Keyhole.Fill = new SolidColorBrush(bottom);
+        var color = paused ? Color.FromRgb(0xF0, 0x8A, 0x3C) : Color.FromRgb(0x3B, 0x5B, 0xDB);
+        TabFill.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(color, Quick));
+        Keyhole.Fill = new SolidColorBrush(color);
         // open padlock: the shackle lifts and swings out a little
         ShackleShift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(paused ? -2.2 : 0, Quick));
         ShackleShift.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(paused ? 2.2 : 0, Quick));
         ToolTip = paused
             ? "잠깐 풀어 둔 상태예요. 누르면 창들이 원래 자리로 돌아가고 다시 고정돼요."
             : "창 고정 중이에요. 누르면 잠깐 풀려서 창을 옮길 수 있어요. (끌어서 다른 가장자리로 옮길 수 있어요)";
-        if (!IsMouseOver) FadeTo(RestingOpacity);
+        if (!IsMouseOver && !_dragging) SetExpanded(ShouldStayOpen);
+    }
+
+    private bool VerticalEdge => _edge is ScreenEdge.Left or ScreenEdge.Right;
+
+    /// <summary>Sliver (6 DIP) ⇄ full tab, growing out of the edge it's glued to; the padlock fades in with it.</summary>
+    private void SetExpanded(bool on, bool animate = true)
+    {
+        double to = on ? TabThicknessDip : SliverDip;
+        var prop = VerticalEdge ? WidthProperty : HeightProperty;
+        var other = VerticalEdge ? HeightProperty : WidthProperty;
+        Tab.BeginAnimation(other, null);
+        Tab.SetValue(other, double.NaN);
+        if (animate)
+        {
+            Tab.BeginAnimation(prop, new DoubleAnimation(to, Quick) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+            Icon.BeginAnimation(OpacityProperty, new DoubleAnimation(on ? 1 : 0, Quick));
+        }
+        else
+        {
+            Tab.BeginAnimation(prop, null);
+            Tab.SetValue(prop, to);
+            Icon.BeginAnimation(OpacityProperty, null);
+            Icon.Opacity = on ? 1 : 0;
+        }
     }
 
     /// <summary>Show glued to the saved edge spot, or the default spot on the secondary monitor's right edge.</summary>
@@ -96,6 +121,9 @@ public partial class FloatingLockButton : Window
     private void Place(TabRect t)
     {
         _edge = t.Edge;
+        Tab.HorizontalAlignment = t.Edge switch { ScreenEdge.Left => HorizontalAlignment.Left, ScreenEdge.Right => HorizontalAlignment.Right, _ => HorizontalAlignment.Stretch };
+        Tab.VerticalAlignment = t.Edge switch { ScreenEdge.Top => VerticalAlignment.Top, ScreenEdge.Bottom => VerticalAlignment.Bottom, _ => VerticalAlignment.Stretch };
+        SetExpanded(IsMouseOver || ShouldStayOpen, animate: false);
         ApplyCorners();
         SetWindowPos(Hwnd, 0, t.X, t.Y, t.Width, t.Height, SWP_NOZORDER | SWP_NOACTIVATE);
     }
@@ -110,8 +138,6 @@ public partial class FloatingLockButton : Window
     private void AnimateRoundness(double to) =>
         BeginAnimation(RoundnessProperty, new DoubleAnimation(to, Quick) { EasingFunction = new QuadraticEase() });
 
-    private void FadeTo(double to) =>
-        BeginAnimation(OpacityProperty, new DoubleAnimation(to, Quick));
 
     /// <summary>Glide from where the tab was dropped to its snapped spot, then flatten the side touching the edge.</summary>
     private void SlideTo(TabRect target, Action done)
@@ -149,8 +175,13 @@ public partial class FloatingLockButton : Window
 
         _downAt = null;
         ReleaseMouseCapture();
+        _dragging = true;
+        Tab.HorizontalAlignment = HorizontalAlignment.Stretch;
+        Tab.VerticalAlignment = VerticalAlignment.Stretch;
+        Tab.BeginAnimation(WidthProperty, null); Tab.Width = double.NaN;
+        Tab.BeginAnimation(HeightProperty, null); Tab.Height = double.NaN;
+        Icon.Opacity = 1;
         AnimateRoundness(1); // lift off the edge: symmetric rounded rectangle while dragging
-        FadeTo(1.0);
         DragMove(); // returns when the mouse button is released
         SnapAndSave();
     }
@@ -175,8 +206,9 @@ public partial class FloatingLockButton : Window
         var t = LockButtonPlacement.Snap((r.Left + r.Right) / 2, (r.Top + r.Bottom) / 2, _host.Ws.GetMonitors(), len, thick);
         SlideTo(t, () =>
         {
+            _dragging = false;
             AnimateRoundness(0); // settle: flat against the edge again
-            if (!IsMouseOver) FadeTo(RestingOpacity);
+            Place(t);
             _host.Config.Settings.LockButtonX = t.CenterX;
             _host.Config.Settings.LockButtonY = t.CenterY;
             _host.SaveConfig();

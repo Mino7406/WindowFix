@@ -23,6 +23,9 @@ public sealed class LockTracker(Preset preset, Func<IReadOnlyList<MonitorInfo>> 
     public Preset Preset => preset;
     public IReadOnlyDictionary<nint, Guid> Bound => _bound;
 
+    /// <summary>Some entry has no window yet — only then are newly shown windows worth looking at.</summary>
+    public bool HasUnboundEntries => preset.Windows.Any(e => !_bound.ContainsValue(e.Id));
+
     public void BindInitial(IEnumerable<EntryResult> applied)
     {
         foreach (var r in applied)
