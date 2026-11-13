@@ -3,9 +3,37 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="WindowFix 고정 버튼" Width="22" Height="56"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="NoResize"
-        Topmost="True" ShowInTaskbar="False" ShowActivated="False" Opacity="0.45" Cursor="Hand">
-    <Border x:Name="Tab" Background="#3B5BDB" CornerRadius="9,0,0,9" BorderBrush="#40FFFFFF" BorderThickness="1">
-        <TextBlock x:Name="Glyph" Text="🔒" FontFamily="Segoe UI Emoji" FontSize="12"
-                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" Opacity="0.55" Cursor="Hand">
+    <Border x:Name="Tab" CornerRadius="9,0,0,9" BorderThickness="1" BorderBrush="#40FFFFFF">
+        <Border.Background>
+            <LinearGradientBrush x:Name="Fill" StartPoint="0,0" EndPoint="0,1">
+                <GradientStop x:Name="FillTop" Offset="0" Color="#6E8BFF" />
+                <GradientStop x:Name="FillBottom" Offset="1" Color="#3B5BDB" />
+            </LinearGradientBrush>
+        </Border.Background>
+        <Grid>
+            <!-- soft top highlight -->
+            <Border CornerRadius="8,0,0,8" Margin="1" VerticalAlignment="Top" Height="18" Opacity="0.35">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Offset="0" Color="#FFFFFFFF" />
+                        <GradientStop Offset="1" Color="#00FFFFFF" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            <!-- vector padlock: shackle + body -->
+            <Viewbox Width="11" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Canvas Width="12" Height="16">
+                    <Path x:Name="Shackle" Stroke="White" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          Data="M3,7.5 V5 A3,3 0 0 1 9,5 V7.5">
+                        <Path.RenderTransform>
+                            <TranslateTransform x:Name="ShackleShift" X="0" Y="0" />
+                        </Path.RenderTransform>
+                    </Path>
+                    <Rectangle Canvas.Left="0.5" Canvas.Top="7" Width="11" Height="8.5" RadiusX="2" RadiusY="2" Fill="White" />
+                    <Ellipse x:Name="Keyhole" Canvas.Left="5" Canvas.Top="10" Width="2" Height="2.6" Fill="#3B5BDB" />
+                </Canvas>
+            </Viewbox>
+        </Grid>
     </Border>
 </Window>

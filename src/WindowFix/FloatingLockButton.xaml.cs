@@ -58,13 +58,18 @@ public partial class FloatingLockButton : Window
     }
 
     private nint Hwnd => new WindowInteropHelper(this).Handle;
-    private double RestingOpacity => _host.Lock.State == LockState.Paused ? 0.9 : 0.45;
+    private double RestingOpacity => _host.Lock.State == LockState.Paused ? 0.92 : 0.55;
 
     public void Update(LockState state)
     {
         bool paused = state == LockState.Paused;
-        Glyph.Text = paused ? "🔓" : "🔒";
-        Tab.Background = new SolidColorBrush(paused ? Color.FromRgb(0xF0, 0x8A, 0x3C) : Color.FromRgb(0x3B, 0x5B, 0xDB));
+        var bottom = paused ? Color.FromRgb(0xF0, 0x8A, 0x3C) : Color.FromRgb(0x3B, 0x5B, 0xDB);
+        FillTop.Color = paused ? Color.FromRgb(0xFF, 0xB4, 0x5E) : Color.FromRgb(0x6E, 0x8B, 0xFF);
+        FillBottom.Color = bottom;
+        Keyhole.Fill = new SolidColorBrush(bottom);
+        // open padlock: the shackle lifts and swings out a little
+        ShackleShift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(paused ? -2.2 : 0, Quick));
+        ShackleShift.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(paused ? 2.2 : 0, Quick));
         ToolTip = paused
             ? "잠깐 풀어 둔 상태예요. 누르면 창들이 원래 자리로 돌아가고 다시 고정돼요."
             : "창 고정 중이에요. 누르면 잠깐 풀려서 창을 옮길 수 있어요. (끌어서 다른 가장자리로 옮길 수 있어요)";
