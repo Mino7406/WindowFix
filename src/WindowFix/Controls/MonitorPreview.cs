@@ -11,6 +11,15 @@ public sealed record PreviewRect(Guid Id, string Label, PixelRect Abs, bool Emph
 /// <summary>Draws the real monitor arrangement, scaled to fit, with window rectangles on top.</summary>
 public sealed class MonitorPreview : FrameworkElement
 {
+    private const double WindowInset = 1;
+    private const double WindowCornerRadius = 6;
+    private const double TitleBarHeight = 14;
+    private const double MonitorLabelTopInset = 24;
+    private const double PreviewBottomInset = 8;
+    private const double MonitorContentInset = 2;
+    private const double ShadowOffsetY = 2;
+    private const byte ShadowAlpha = 0x40;
+
     private static readonly Color[] Palette =
     [
         Color.FromRgb(0x58, 0x65, 0xF2), Color.FromRgb(0xF5, 0xC5, 0x18), Color.FromRgb(0x2E, 0xB6, 0x7D),
@@ -64,8 +73,10 @@ public sealed class MonitorPreview : FrameworkElement
 
         int minX = _monitors.Min(m => m.Bounds.X), minY = _monitors.Min(m => m.Bounds.Y);
         int maxX = _monitors.Max(m => m.Bounds.Right), maxY = _monitors.Max(m => m.Bounds.Bottom);
-        double scale = Math.Min((ActualWidth - 16) / (maxX - minX), (ActualHeight - 16) / (maxY - minY));
-        double ox = (ActualWidth - (maxX - minX) * scale) / 2, oy = (ActualHeight - (maxY - minY) * scale) / 2;
+        double previewHeight = Math.Max(0, ActualHeight - MonitorLabelTopInset - PreviewBottomInset);
+        double scale = Math.Min((ActualWidth - 16) / (maxX - minX), previewHeight / (maxY - minY));
+        double ox = (ActualWidth - (maxX - minX) * scale) / 2;
+        double oy = MonitorLabelTopInset + (previewHeight - (maxY - minY) * scale) / 2;
         Rect Map(PixelRect r) => new(ox + (r.X - minX) * scale, oy + (r.Y - minY) * scale, r.Width * scale, r.Height * scale);
 
         var monitorFill = TryFindResource("Monitor.Fill") as Brush ?? Brushes.DimGray;
@@ -77,20 +88,68 @@ public sealed class MonitorPreview : FrameworkElement
             var r = Map(m.Bounds);
             dc.DrawRoundedRectangle(monitorFill, monitorPen, r, 6, 6);
             DrawText(dc, $"모니터 {index++}{(m.IsPrimary ? " (메인)" : "")} · {m.Bounds.Width}×{m.Bounds.Height}",
-                new Point(r.X + 8, r.Y + 6), 11, labelBrush, r.Width - 16);
+                new Point(r.X + 8, r.Y - 18), 11, labelBrush, r.Width - 16);
         }
 
         foreach (var pr in _rects)
         {
-            var r = Map(pr.Abs);
+            var monitor = _monitors
+                .OrderByDescending(m => IntersectionArea(m.Bounds, pr.Abs))
+                .First();
+            var monitorBounds = Map(monitor.Bounds);
+            var contentBounds = new Rect(
+                monitorBounds.X + MonitorContentInset,
+                monitorBounds.Y + MonitorContentInset,
+                Math.Max(0, monitorBounds.Width - MonitorContentInset * 2),
+                Math.Max(0, monitorBounds.Height - MonitorContentInset * 2));
+            var bounds = Map(pr.Abs);
+            bounds.Intersect(contentBounds);
+            if (bounds.IsEmpty) continue;
+            if (bounds.Width <= WindowInset * 2 || bounds.Height <= WindowInset * 2) continue;
+
+            // Keep a visible gap when saved windows touch at their edges.
+            var r = new Rect(bounds.X + WindowInset, bounds.Y + WindowInset,
+                bounds.Width - WindowInset * 2, bounds.Height - WindowInset * 2);
+            double radius = Math.Min(WindowCornerRadius, Math.Min(r.Width, r.Height) / 2);
             var c = BrandColor(pr.Label) ?? ColorFor(pr.Id);
             bool lightFill = (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255 > 0.6;
-            var fill = new SolidColorBrush(Color.FromArgb(pr.Emphasized ? (byte)0xF2 : (byte)0x38, c.R, c.G, c.B));
-            var pen = new Pen(Selected == pr.Id ? Brushes.White : new SolidColorBrush(Color.FromArgb(0xA0, 0xFF, 0xFF, 0xFF)),
-                Selected == pr.Id ? 2.5 : 1);
-            dc.DrawRoundedRectangle(fill, pen, r, 2, 2);
-            DrawText(dc, pr.Label, new Point(r.X + 6, r.Y + r.Height / 2 - 8), 12,
-                pr.Emphasized ? (lightFill ? new SolidColorBrush(Color.FromRgb(0x1D, 0x21, 0x29)) : Brushes.White) : Brushes.LightGray, r.Width - 12);
+            bool selected = Selected == pr.Id;
+            byte fillAlpha = pr.Emphasized ? (byte)0xF2 : (byte)0x38;
+            var fill = new SolidColorBrush(Color.FromArgb(fillAlpha, c.R, c.G, c.B));
+            var titleColor = Darken(c, 0.18);
+            var titleFill = new SolidColorBrush(Color.FromArgb(fillAlpha, titleColor.R, titleColor.G, titleColor.B));
+
+            var shadow = new SolidColorBrush(Color.FromArgb(ShadowAlpha, 0, 0, 0));
+            var shadowBounds = new Rect(r.X, r.Y + ShadowOffsetY, r.Width, r.Height);
+            dc.DrawRoundedRectangle(shadow, null, shadowBounds, radius, radius);
+            dc.DrawRoundedRectangle(fill, null, r, radius, radius);
+
+            double titleHeight = Math.Min(TitleBarHeight, r.Height);
+            dc.PushClip(new RectangleGeometry(r, radius, radius));
+            dc.DrawRoundedRectangle(titleFill, null,
+                new Rect(r.X, r.Y, r.Width, titleHeight), radius, radius);
+            if (titleHeight > radius)
+                dc.DrawRectangle(titleFill, null,
+                    new Rect(r.X, r.Y + radius, r.Width, titleHeight - radius));
+            dc.Pop();
+
+            var windowLabelBrush = pr.Emphasized
+                ? (lightFill ? new SolidColorBrush(Color.FromRgb(0x1D, 0x21, 0x29)) : Brushes.White)
+                : TryFindResource("Fg.Primary") as Brush ?? Brushes.White;
+            var labelBounds = new Rect(r.X + 6, r.Y + titleHeight, r.Width - 12, r.Height - titleHeight);
+            DrawCenteredText(dc, pr.Label, labelBounds, 12, windowLabelBrush);
+
+            double borderWidth = selected ? 2.5 : 1.5;
+            var borderColor = selected
+                ? Colors.White
+                : Darken(c, 0.14);
+            if (!selected) borderColor.A = lightFill ? (byte)0x70 : (byte)0xB8;
+            var border = new Pen(new SolidColorBrush(borderColor), borderWidth);
+            var borderBounds = new Rect(r.X + borderWidth / 2, r.Y + borderWidth / 2,
+                Math.Max(0, r.Width - borderWidth), Math.Max(0, r.Height - borderWidth));
+            if (r.Width > borderWidth && r.Height > borderWidth)
+                dc.DrawRoundedRectangle(null, border, borderBounds,
+                    Math.Max(0, radius - borderWidth / 2), Math.Max(0, radius - borderWidth / 2));
             _hit.Add((r, pr.Id));
         }
     }
@@ -115,5 +174,32 @@ public sealed class MonitorPreview : FrameworkElement
             Trimming = TextTrimming.CharacterEllipsis,
         };
         dc.DrawText(ft, at);
+    }
+
+    private void DrawCenteredText(DrawingContext dc, string text, Rect bounds, double size, Brush brush)
+    {
+        if (bounds.Width < 8 || bounds.Height < 8) return;
+        var ft = new FormattedText(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"), size, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip)
+        {
+            MaxTextWidth = bounds.Width,
+            MaxLineCount = 1,
+            Trimming = TextTrimming.CharacterEllipsis,
+        };
+        dc.DrawText(ft, new Point(
+            bounds.X + Math.Max(0, (bounds.Width - ft.Width) / 2),
+            bounds.Y + Math.Max(0, (bounds.Height - ft.Height) / 2)));
+    }
+
+    private static Color Darken(Color color, double amount) => Color.FromRgb(
+        (byte)Math.Round(color.R * (1 - amount)),
+        (byte)Math.Round(color.G * (1 - amount)),
+        (byte)Math.Round(color.B * (1 - amount)));
+
+    private static long IntersectionArea(PixelRect a, PixelRect b)
+    {
+        int width = Math.Max(0, Math.Min(a.Right, b.Right) - Math.Max(a.X, b.X));
+        int height = Math.Max(0, Math.Min(a.Bottom, b.Bottom) - Math.Max(a.Y, b.Y));
+        return (long)width * height;
     }
 }
