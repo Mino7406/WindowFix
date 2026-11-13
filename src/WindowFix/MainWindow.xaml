@@ -300,10 +300,10 @@
                         <Border Style="{StaticResource Card}" Margin="0,0,0,12">
                             <StackPanel>
                                 <TextBlock Text="화면 테마" FontWeight="SemiBold" FontSize="14" />
-                                <TextBlock Style="{StaticResource Hint}" Text="'시스템 설정 따라가기'는 Windows의 밝게/어둡게 설정을 그대로 따라가요." Margin="0,2,0,10" />
+                                <TextBlock Style="{StaticResource Hint}" Text="'Windows 설정'을 고르면 Windows의 밝게/어둡게 설정을 그대로 따라가요." Margin="0,2,0,10" />
                                 <Border Background="{DynamicResource Bg.Stage}" CornerRadius="8" HorizontalAlignment="Left" Padding="2">
                                     <StackPanel Orientation="Horizontal">
-                                        <RadioButton x:Name="ThemeSystem" GroupName="Theme" Style="{StaticResource Segment}" Content="시스템 설정 따라가기" Click="OnThemeClick" />
+                                        <RadioButton x:Name="ThemeSystem" GroupName="Theme" Style="{StaticResource Segment}" Content="Windows 설정" Click="OnThemeClick" />
                                         <RadioButton x:Name="ThemeLight" GroupName="Theme" Style="{StaticResource Segment}" Content="☀ 라이트" Click="OnThemeClick" />
                                         <RadioButton x:Name="ThemeDark" GroupName="Theme" Style="{StaticResource Segment}" Content="☾ 다크" Click="OnThemeClick" />
                                     </StackPanel>
@@ -314,7 +314,7 @@
                             <StackPanel>
                                 <CheckBox x:Name="StartupCheck" Click="OnStartupClick" Margin="0">
                                     <StackPanel>
-                                        <TextBlock Text="컴퓨터 켤 때 배치 맞추기" FontWeight="SemiBold" />
+                                        <TextBlock Text="시작 프로그램으로 설정" FontWeight="SemiBold" />
                                         <TextBlock Style="{StaticResource Hint}" Text="컴퓨터를 켜면 창들이 늦게 떠도 기다렸다가 제자리에 놓아 줘요." />
                                     </StackPanel>
                                 </CheckBox>
@@ -340,7 +340,7 @@
                                 <CheckBox x:Name="AdminCheck" Click="OnAdminClick" Margin="0">
                                     <StackPanel>
                                         <TextBlock Text="항상 관리자 권한으로 실행" FontWeight="SemiBold" />
-                                        <TextBlock Style="{StaticResource Hint}" Text="메이플처럼 관리자 권한으로 켜지는 게임 창도 고정하려면 켜세요. 컴퓨터를 켤 때도 관리자 권한으로 자동 실행돼요. 처음 켤 때 한 번만 확인 창이 떠요." />
+                                        <TextBlock Style="{StaticResource Hint}" Text="게임처럼 관리자 권한으로 켜지는 창도 고정하려면 켜세요.&#10;시작 프로그램으로 설정해도 자동으로 관리자 권한으로 실행돼요. (처음 켤 때 한 번만 확인 창이 떠요.)" />
                                     </StackPanel>
                                 </CheckBox>
                                 <TextBlock x:Name="AdminState" Style="{StaticResource Hint}" Margin="46,8,0,0" />
@@ -350,14 +350,14 @@
                             <StackPanel>
                                 <CheckBox x:Name="ButtonCheck" Click="OnButtonClick" Margin="0,0,0,12">
                                     <StackPanel>
-                                        <TextBlock Text="화면 가장자리에 고정 탭 띄우기" FontWeight="SemiBold" />
-                                        <TextBlock Style="{StaticResource Hint}" Text="창 고정 중일 때 모니터 가장자리에 작은 탭이 붙어요. 누르면 잠깐 풀고, 다시 누르면 원래 자리로 돌아가요." />
+                                        <TextBlock Text="창 고정 위젯 사용" FontWeight="SemiBold" />
+                                        <TextBlock Style="{StaticResource Hint}" Text="창 고정 중일 때 화면 가장자리에 위젯이 생겨요." />
                                     </StackPanel>
                                 </CheckBox>
                                 <CheckBox x:Name="TrayCheck" Click="OnTrayClick" Margin="0">
                                     <StackPanel>
-                                        <TextBlock Text="작업표시줄에 아이콘 표시" FontWeight="SemiBold" />
-                                        <TextBlock Style="{StaticResource Hint}" Text="시계 옆에 WindowFix 아이콘을 보여 줘요. 숨겨도 WindowFix를 다시 실행하면 이 창이 열려요." />
+                                        <TextBlock Text="시스템 트레이에 표시" FontWeight="SemiBold" />
+                                        <TextBlock Style="{StaticResource Hint}" Text="시스템 트레이에 WindowFix 아이콘을 보여 줘요.&#10;백그라운드에서 실행 중이어도 간단하게 조작할 수 있어요." />
                                     </StackPanel>
                                 </CheckBox>
                             </StackPanel>

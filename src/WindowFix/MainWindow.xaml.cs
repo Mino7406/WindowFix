@@ -87,7 +87,7 @@ public partial class MainWindow : Window
         {
             LockState.Active => ("🔒 창 고정 중", $"'{_host.CurrentPreset?.Name}' 배치를 지키고 있어요.", "Lock.Active.Bg", "Lock.Active.Border",
                 locksThis ? "● 고정 중" : "", "Chip.Active.Bg", "Chip.Active.Fg"),
-            LockState.Paused => ("🔓 잠깐 풀어 둠", "고정 탭을 다시 누르면 원래 자리로 돌아가요.", "Lock.Paused.Bg", "Lock.Paused.Border",
+            LockState.Paused => ("🔓 잠깐 풀어 둠", "위젯을 다시 누르면 원래 자리로 돌아가요.", "Lock.Paused.Bg", "Lock.Paused.Border",
                 locksThis ? "잠깐 풀어 둠" : "", "Chip.Paused.Bg", "Chip.Paused.Fg"),
             _ => ("🔒 창 고정", _host.Config.Presets.Count == 0 ? "먼저 배치를 만드세요." : "켜면 창이 저장한 자리에서 움직이지 않아요.",
                 "Lock.Off.Bg", "Lock.Off.Border", has ? "고정 안 함" : "", "Chip.Off.Bg", "Chip.Off.Fg"),

@@ -68,18 +68,18 @@
 | [MainWindow.xaml:288](../src/WindowFix/MainWindow.xaml#L288) | 마우스 올렸을 때 설명 | 이 창을 배치에서 빼요. 프로그램이 꺼지지는 않아요. |
 | [MainWindow.xaml:299](../src/WindowFix/MainWindow.xaml#L299) | 글자 | 설정 |
 | [MainWindow.xaml:302](../src/WindowFix/MainWindow.xaml#L302) | 글자 | 화면 테마 |
-| [MainWindow.xaml:303](../src/WindowFix/MainWindow.xaml#L303) | 글자 | '시스템 설정 따라가기'는 Windows의 밝게/어둡게 설정을 그대로 따라가요. |
-| [MainWindow.xaml:306](../src/WindowFix/MainWindow.xaml#L306) | 버튼/글자 | 시스템 설정 따라가기 |
+| [MainWindow.xaml:303](../src/WindowFix/MainWindow.xaml#L303) | 글자 | 'Windows 설정'는 Windows의 밝게/어둡게 설정을 그대로 따라가요. |
+| [MainWindow.xaml:306](../src/WindowFix/MainWindow.xaml#L306) | 버튼/글자 | Windows 설정 |
 | [MainWindow.xaml:307](../src/WindowFix/MainWindow.xaml#L307) | 버튼/글자 | ☀ 라이트 |
 | [MainWindow.xaml:308](../src/WindowFix/MainWindow.xaml#L308) | 버튼/글자 | ☾ 다크 |
-| [MainWindow.xaml:317](../src/WindowFix/MainWindow.xaml#L317) | 글자 | 컴퓨터 켤 때 배치 맞추기 |
+| [MainWindow.xaml:317](../src/WindowFix/MainWindow.xaml#L317) | 글자 | 시작 프로그램으로 설정 |
 | [MainWindow.xaml:318](../src/WindowFix/MainWindow.xaml#L318) | 글자 | 컴퓨터를 켜면 창들이 늦게 떠도 기다렸다가 제자리에 놓아 줘요. |
 | [MainWindow.xaml:321](../src/WindowFix/MainWindow.xaml#L321) | 글자 | 어떤 배치로 맞출까요? |
 | [MainWindow.xaml:342](../src/WindowFix/MainWindow.xaml#L342) | 글자 | 항상 관리자 권한으로 실행 |
 | [MainWindow.xaml:343](../src/WindowFix/MainWindow.xaml#L343) | 글자 | 메이플처럼 관리자 권한으로 켜지는 게임 창도 고정하려면 켜세요. 컴퓨터를 켤 때도 관리자 권한으로 자동 실행돼요. 처음 켤 때 한 번만 확인 창이 떠요. |
-| [MainWindow.xaml:353](../src/WindowFix/MainWindow.xaml#L353) | 글자 | 화면 가장자리에 고정 탭 띄우기 |
+| [MainWindow.xaml:353](../src/WindowFix/MainWindow.xaml#L353) | 글자 | 창 고정 위젯 사용 |
 | [MainWindow.xaml:354](../src/WindowFix/MainWindow.xaml#L354) | 글자 | 창 고정 중일 때 모니터 가장자리에 작은 탭이 붙어요. 누르면 잠깐 풀고, 다시 누르면 원래 자리로 돌아가요. |
-| [MainWindow.xaml:359](../src/WindowFix/MainWindow.xaml#L359) | 글자 | 작업표시줄에 아이콘 표시 |
+| [MainWindow.xaml:359](../src/WindowFix/MainWindow.xaml#L359) | 글자 | 시스템 트레이에 표시 |
 | [MainWindow.xaml:360](../src/WindowFix/MainWindow.xaml#L360) | 글자 | 시계 옆에 WindowFix 아이콘을 보여 줘요. 숨겨도 WindowFix를 다시 실행하면 이 창이 열려요. |
 | [MainWindow.xaml.cs:44](../src/WindowFix/MainWindow.xaml.cs#L44) | 코드 | 단, |
 | [MainWindow.xaml.cs:44](../src/WindowFix/MainWindow.xaml.cs#L44) | 코드 | 못 |
@@ -90,7 +90,7 @@
 | [MainWindow.xaml.cs:88](../src/WindowFix/MainWindow.xaml.cs#L88) | 코드 | '{_host.CurrentPreset?.Name}' 배치를 지키고 있어요. |
 | [MainWindow.xaml.cs:89](../src/WindowFix/MainWindow.xaml.cs#L89) | 코드 | ● 고정 중 |
 | [MainWindow.xaml.cs:90](../src/WindowFix/MainWindow.xaml.cs#L90) | 코드 | 🔓 잠깐 풀어 둠 |
-| [MainWindow.xaml.cs:90](../src/WindowFix/MainWindow.xaml.cs#L90) | 코드 | 고정 탭을 다시 누르면 원래 자리로 돌아가요. |
+| [MainWindow.xaml.cs:90](../src/WindowFix/MainWindow.xaml.cs#L90) | 코드 | 위젯을 다시 누르면 원래 자리로 돌아가요. |
 | [MainWindow.xaml.cs:91](../src/WindowFix/MainWindow.xaml.cs#L91) | 코드 | 잠깐 풀어 둠 |
 | [MainWindow.xaml.cs:92](../src/WindowFix/MainWindow.xaml.cs#L92) | 코드 | 🔒 창 고정 |
 | [MainWindow.xaml.cs:92](../src/WindowFix/MainWindow.xaml.cs#L92) | 코드 | 먼저 배치를 만드세요. |
