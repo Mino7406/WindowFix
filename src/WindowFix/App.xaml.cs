@@ -31,9 +31,8 @@ public partial class App : Application
     {
         LogError(e.Exception);
         e.Handled = true;
-        MessageBox.Show("예상하지 못한 문제가 생겼어요. WindowFix는 계속 동작해요.\n" +
-                        "같은 문제가 반복되면 %APPDATA%\\WindowFix\\error.log 파일을 보내 주세요.",
-            "WindowFix", MessageBoxButton.OK, MessageBoxImage.Warning);
+        Dialogs.AppDialog.Info(null, "예상하지 못한 문제가 생겼어요",
+            @"WindowFix는 계속 동작해요. 같은 문제가 반복되면 %APPDATA%\WindowFix\error.log 파일을 보내 주세요.");
     }
 
     public static void LogError(Exception ex)

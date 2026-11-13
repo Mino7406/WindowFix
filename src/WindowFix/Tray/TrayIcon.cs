@@ -43,6 +43,12 @@ public sealed class TrayIcon : IDisposable
     {
         var menu = _icon.ContextMenuStrip!;
         menu.Items.Clear();
+        bool dark = ThemeManager.IsDark;
+        menu.Renderer = new ThemedMenuRenderer(dark);
+        menu.Font = new System.Drawing.Font("Segoe UI", 9.75f);
+        menu.Padding = new Forms.Padding(2, 4, 2, 4);
+        menu.ShowImageMargin = true;
+        if (menu.IsHandleCreated) ThemedMenuRenderer.RoundCorners(menu); else menu.HandleCreated += (_, _) => ThemedMenuRenderer.RoundCorners(menu);
         var open = new Forms.ToolStripMenuItem("WindowFix 열기", null, (_, _) => _host.ShowMainWindow()) { Font = new System.Drawing.Font(menu.Font, System.Drawing.FontStyle.Bold) };
         menu.Items.Add(open);
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -57,15 +63,17 @@ public sealed class TrayIcon : IDisposable
             });
         }
         apply.Enabled = apply.DropDownItems.Count > 0;
+        apply.DropDown.Renderer = menu.Renderer;
+        apply.DropDown.Font = menu.Font;
         menu.Items.Add(apply);
 
         switch (_host.Lock.State)
         {
             case LockState.Paused:
-                menu.Items.Add(new Forms.ToolStripMenuItem("🔒 다시 고정하기 (원래 자리로)", null, (_, _) => _host.Lock.TogglePause()));
+                menu.Items.Add(new Forms.ToolStripMenuItem("다시 고정하기 (원래 자리로)", null, (_, _) => _host.Lock.TogglePause()));
                 break;
             case LockState.Active:
-                menu.Items.Add(new Forms.ToolStripMenuItem("🔓 잠깐 풀기", null, (_, _) => _host.Lock.TogglePause()));
+                menu.Items.Add(new Forms.ToolStripMenuItem("잠깐 풀기", null, (_, _) => _host.Lock.TogglePause()));
                 break;
         }
         menu.Items.Add(new Forms.ToolStripMenuItem("창 고정", null, (_, _) => _host.SetLockEnabled(!_host.Config.Settings.LockEnabled))
@@ -75,7 +83,7 @@ public sealed class TrayIcon : IDisposable
         });
 
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add(new Forms.ToolStripMenuItem("WindowFix 끝내기", null, (_, _) => _host.Shutdown()));
+        menu.Items.Add(new Forms.ToolStripMenuItem("WindowFix 끝내기", null, (_, _) => _host.Shutdown()) { Tag = "danger" });
     }
 
     public void Dispose()

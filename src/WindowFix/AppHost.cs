@@ -50,7 +50,7 @@ public sealed class AppHost : IDisposable
     public void Run(string[] args)
     {
         // An elevated restart may start while the previous instance is still shutting down: give it a moment.
-        bool restarted = args.Contains(RestartedArg) || Ws.SelfElevated;
+        bool restarted = args.Contains(RestartedArg);
         _instance = SingleInstance.TryAcquire(() => _app.Dispatcher.BeginInvoke(ShowMainWindow),
             restarted ? TimeSpan.FromSeconds(8) : TimeSpan.Zero);
         if (_instance is null)
@@ -65,8 +65,8 @@ public sealed class AppHost : IDisposable
         }
         catch (ConfigUnavailableException)
         {
-            MessageBox.Show("설정 파일을 지금 읽을 수 없어요. 저장해 둔 배치를 지키기 위해 WindowFix를 닫을게요.\n잠시 뒤 다시 실행해 주세요.",
-                "WindowFix", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Dialogs.AppDialog.Info(null, "설정 파일을 읽을 수 없어요",
+                "저장해 둔 배치를 지키기 위해 WindowFix를 닫을게요. 잠시 뒤 다시 실행해 주세요.");
             Shutdown();
             return;
         }

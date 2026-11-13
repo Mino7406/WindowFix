@@ -11,7 +11,7 @@ public sealed class SchtasksElevatedTasks : IElevatedTasks
         Schtasks($"/Create /F /TN \"{name}\" /TR \"\\\"{exe}\\\" {args}\" /SC ONLOGON /RL HIGHEST /IT /DELAY 0000:10");
 
     public void CreateOnDemandTask(string name, string exe) =>
-        Schtasks($"/Create /F /TN \"{name}\" /TR \"\\\"{exe}\\\"\" /SC ONCE /ST 00:00 /RL HIGHEST /IT");
+        Schtasks($"/Create /F /TN \"{name}\" /TR \"\\\"{exe}\\\" --restarted\" /SC ONCE /ST 00:00 /RL HIGHEST /IT");
 
     public void Delete(string name) => Schtasks($"/Delete /F /TN \"{name}\"");
 

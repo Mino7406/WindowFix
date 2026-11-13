@@ -13,27 +13,90 @@ using WindowFix.Core.Platform;
 
 namespace WindowFix;
 
-/// <summary>"지금 배치 저장": lists the windows on screen, pre-checks those on non-primary monitors, saves the checked ones.</summary>
+/// <summary>
+/// Two uses: "새 배치 만들기" (lists the windows on screen, pre-checks those on non-primary monitors) and
+/// "배치 수정" (pre-checks the windows already in the layout and saves their current positions back into it,
+/// keeping each window's own settings).
+/// </summary>
 public partial class SaveDialog : Window
 {
-    private readonly IReadOnlyList<MonitorInfo> _monitors;
-    private readonly List<Candidate> _items;
+    private readonly IWindowSystem _ws;
+    private readonly Preset? _editing;
+    private IReadOnlyList<MonitorInfo> _monitors = [];
+    private List<Candidate> _items = [];
 
-    private SaveDialog(IWindowSystem ws, string defaultName)
+    private SaveDialog(IWindowSystem ws, string defaultName, Preset? editing)
     {
+        _ws = ws;
+        _editing = editing;
         InitializeComponent();
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
-        _monitors = ws.GetMonitors();
-        var windows = ws.GetWindows(includeHidden: false)
+        if (editing is not null)
+        {
+            Title = $"'{editing.Name}' 배치 수정";
+            HeaderText.Text = "이 배치에 넣을 창을 고르세요";
+            SubText.Text = "체크한 창들의 지금 위치와 크기로 배치가 바뀌어요. 수정하는 동안은 창 고정이 잠깐 풀려 있으니, 창을 원하는 자리로 옮긴 뒤 [↻ 지금 위치 다시 읽기]를 누르세요.";
+            SaveButton.Content = "변경 저장";
+        }
+        else
+        {
+            RescanButton.Visibility = Visibility.Collapsed;
+        }
+        Preview.RectClicked += id =>
+        {
+            var c = _items.FirstOrDefault(i => i.Id == id);
+            if (c is not null) c.IsChecked = !c.IsChecked;
+        };
+        NameBox.Text = editing?.Name ?? defaultName;
+        LoadWindows(keepChecks: null);
+    }
+
+    public Preset? Result { get; private set; }
+
+    /// <summary>New layout from the windows on screen; null when cancelled.</summary>
+    public static Preset? Show(Window owner, IWindowSystem ws, string defaultName)
+    {
+        var dlg = new SaveDialog(ws, defaultName, editing: null) { Owner = owner };
+        return dlg.ShowDialog() == true ? dlg.Result : null;
+    }
+
+    /// <summary>Edit <paramref name="preset"/> in place from the windows on screen; false when cancelled.</summary>
+    public static bool Edit(Window owner, IWindowSystem ws, Preset preset)
+    {
+        var dlg = new SaveDialog(ws, preset.Name, preset) { Owner = owner };
+        return dlg.ShowDialog() == true;
+    }
+
+    private void LoadWindows(ISet<nint>? keepChecks)
+    {
+        _monitors = _ws.GetMonitors();
+        var windows = _ws.GetWindows(includeHidden: false)
             .Where(w => WindowMatcher.IsCandidate(w) && w.ProcessId != Environment.ProcessId && !w.IsMinimized)
             .ToList();
-        var preselected = PresetCapture.DefaultSelection(windows, _monitors).Where(w => !w.IsElevated).Select(w => w.Handle).ToHashSet();
-        var ordered = _monitors.OrderBy(m => m.Bounds.X).ThenBy(m => m.Bounds.Y).ToList();
 
+        ISet<nint> preselected;
+        if (keepChecks is not null) preselected = keepChecks;
+        else if (_editing is not null)
+        {
+            // the windows the layout's entries resolve to right now
+            var taken = new HashSet<nint>();
+            foreach (var e in _editing.Windows)
+                if (WindowMatcher.PickBest(e.Match, windows, taken) is { } w) taken.Add(w.Handle);
+            preselected = taken;
+        }
+        else
+        {
+            // admin apps stay unchecked only when WindowFix itself can't move them
+            preselected = PresetCapture.DefaultSelection(windows, _monitors)
+                .Where(w => !(w.IsElevated && !_ws.SelfElevated)).Select(w => w.Handle).ToHashSet();
+        }
+
+        var ordered = _monitors.OrderBy(m => m.Bounds.X).ThenBy(m => m.Bounds.Y).ToList();
         _items = windows.Select(w =>
         {
             var m = Placement.MonitorOf(w.Rect, _monitors);
-            var c = new Candidate(w, IconFor(w.ExePath), (w.IsElevated && !ws.SelfElevated ? "⚠ 관리자 권한 앱 (게임 등) · " : "") + $"모니터 {ordered.IndexOf(m) + 1}{(m.IsPrimary ? " (메인)" : "")} · {w.Rect.Width}×{w.Rect.Height}")
+            var warn = w.IsElevated && !_ws.SelfElevated ? "⚠ 관리자 권한 앱 (게임 등) · " : "";
+            var c = new Candidate(w, IconFor(w.ExePath), $"{warn}모니터 {ordered.IndexOf(m) + 1}{(m.IsPrimary ? " (메인)" : "")} · {w.Rect.Width}×{w.Rect.Height}")
             {
                 IsChecked = preselected.Contains(w.Handle),
             };
@@ -43,22 +106,11 @@ public partial class SaveDialog : Window
 
         WindowList.ItemsSource = _items;
         Preview.Monitors = _monitors;
-        Preview.RectClicked += id =>
-        {
-            var c = _items.FirstOrDefault(i => i.Id == id);
-            if (c is not null) c.IsChecked = !c.IsChecked;
-        };
-        NameBox.Text = defaultName;
         Refresh();
     }
 
-    public Preset? Result { get; private set; }
-
-    public static Preset? Show(Window owner, IWindowSystem ws, string defaultName)
-    {
-        var dlg = new SaveDialog(ws, defaultName) { Owner = owner };
-        return dlg.ShowDialog() == true ? dlg.Result : null;
-    }
+    private void OnRescan(object sender, RoutedEventArgs e) =>
+        LoadWindows(_items.Where(i => i.IsChecked).Select(i => i.Window.Handle).ToHashSet());
 
     private void Refresh()
     {
@@ -81,7 +133,38 @@ public partial class SaveDialog : Window
     {
         var selected = _items.Where(c => c.IsChecked).Select(c => c.Window).ToList();
         if (selected.Count == 0 || NameBox.Text.Trim().Length == 0) return;
-        Result = PresetCapture.Capture(NameBox.Text.Trim(), selected, _monitors);
+        var fresh = PresetCapture.Capture(NameBox.Text.Trim(), selected, _monitors);
+        if (_editing is null)
+        {
+            Result = fresh;
+            DialogResult = true;
+            return;
+        }
+
+        // Keep each window's own settings (auto-launch, name, title rule...) when it was already in the layout.
+        var windows = _ws.GetWindows(includeHidden: false);
+        var taken = new HashSet<nint>();
+        var oldByHandle = new Dictionary<nint, WindowEntry>();
+        foreach (var old in _editing.Windows)
+            if (WindowMatcher.PickBest(old.Match, windows, taken) is { } w) { taken.Add(w.Handle); oldByHandle[w.Handle] = old; }
+
+        var merged = new List<WindowEntry>();
+        for (int i = 0; i < selected.Count; i++)
+        {
+            var neu = fresh.Windows[i];
+            if (oldByHandle.TryGetValue(selected[i].Handle, out var old))
+            {
+                old.Monitor = neu.Monitor;
+                old.Rect = neu.Rect;
+                old.Maximized = neu.Maximized;
+                old.Match.SavedTitle = neu.Match.SavedTitle;
+                merged.Add(old);
+            }
+            else merged.Add(neu);
+        }
+        _editing.Name = fresh.Name;
+        _editing.Windows = merged;
+        Result = _editing;
         DialogResult = true;
     }
 

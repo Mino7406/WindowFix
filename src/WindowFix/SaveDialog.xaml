@@ -2,13 +2,15 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="clr-namespace:WindowFix.Controls"
-        Title="지금 배치 저장" FontSize="13" Width="980" Height="560" MinWidth="720" MinHeight="420"
+        Title="새 배치 만들기" FontSize="13" Width="980" Height="560" MinWidth="720" MinHeight="420"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource Bg.Window}" Foreground="{DynamicResource Fg.Primary}" FontFamily="{StaticResource UiFont}"
         Icon="pack://application:,,,/Assets/WindowFix.ico">
     <DockPanel Margin="12">
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button x:Name="RescanButton" Content="↻ 지금 위치 다시 읽기" Click="OnRescan"
+                            ToolTip="창을 옮겼다면 눌러서 지금 위치를 다시 읽어 오세요." />
                     <Button x:Name="SaveButton" Content="저장하기" IsDefault="True" Click="OnSave" Style="{StaticResource Primary}" />
                     <Button Content="취소" IsCancel="True" Margin="0" />
                 </StackPanel>
@@ -28,23 +30,24 @@
 
             <DockPanel Margin="0,0,12,0">
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                    <TextBlock Text="어떤 창을 고정할까요?" FontSize="16" FontWeight="SemiBold" />
-                    <TextBlock Foreground="{DynamicResource Fg.Secondary}" TextWrapping="Wrap" Margin="0,3,0,0"
+                    <TextBlock x:Name="HeaderText" Text="어떤 창을 고정할까요?" FontSize="16" FontWeight="SemiBold" />
+                    <TextBlock x:Name="SubText" Foreground="{DynamicResource Fg.Secondary}" TextWrapping="Wrap" Margin="0,3,0,0"
                                Text="지금 화면에 떠 있는 창이에요. 고정할 창에 체크하세요. 오른쪽 그림에서 창을 눌러도 돼요. (보조 모니터에 있는 창은 미리 체크해 뒀어요)" />
                     <TextBlock Foreground="{DynamicResource Lock.Paused.Fg}" TextWrapping="Wrap" Margin="0,4,0,0" FontSize="12"
                                Text="찾는 창이 없나요? 최소화했거나 트레이에 숨긴 창은 안 보여요. 그 창을 화면에 띄운 뒤 다시 열어 주세요." />
                 </StackPanel>
                 <ListBox x:Name="WindowList" HorizontalContentAlignment="Stretch" Background="{DynamicResource Bg.Card}"
-                         BorderBrush="{DynamicResource Border.Subtle}" Foreground="{DynamicResource Fg.Primary}" Padding="4">
+                         BorderBrush="{DynamicResource Border.Subtle}" Foreground="{DynamicResource Fg.Primary}" Padding="4"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <DockPanel Margin="2,3">
                                 <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsChecked}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <Image DockPanel.Dock="Left" Source="{Binding Icon}" Width="20" Height="20" Margin="0,0,8,0" VerticalAlignment="Center" />
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Program}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Program}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="{Binding Title}" Foreground="{DynamicResource Fg.Secondary}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Fg.Muted}" FontSize="11" />
+                                    <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Fg.Muted}" FontSize="11" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </DockPanel>
                         </DataTemplate>

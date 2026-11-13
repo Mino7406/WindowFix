@@ -25,7 +25,7 @@ public partial class MainWindow : Window
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
         ThemeManager.Changed += () => { Preview.InvalidateVisual(); RefreshPreview(); RefreshToggles(); };
         Preview.ClickSelectsRects = false;
-        Preview.Clicked += () => OnSaveCurrent(this, new RoutedEventArgs());
+        Preview.Clicked += EditLayout;
         Preview.RectRightClicked += id => SelectEntry(id);
         _host.ConfigChanged += () => Dispatcher.Invoke(RefreshAll);
         _host.Lock.StateChanged += _ => Dispatcher.Invoke(RefreshToggles);
@@ -226,8 +226,8 @@ public partial class MainWindow : Window
     private void OnMenuRename(object sender, RoutedEventArgs e)
     {
         if (MenuPreset(sender) is not { } p) return;
-        var name = Microsoft.VisualBasic.Interaction.InputBox("새 이름을 입력하세요.", "배치 이름 바꾸기", p.Name).Trim();
-        if (name.Length == 0) return;
+        var name = Dialogs.AppDialog.Prompt(this, "배치 이름 바꾸기", "새 이름을 입력하세요.", p.Name);
+        if (name is null) return;
         p.Name = name;
         _host.SaveConfig();
     }
@@ -235,8 +235,8 @@ public partial class MainWindow : Window
     private void OnMenuDelete(object sender, RoutedEventArgs e)
     {
         if (MenuPreset(sender) is not { } p) return;
-        if (MessageBox.Show(this, $"'{p.Name}' 배치를 삭제할까요?\n(창이나 프로그램은 그대로 있어요. 저장한 자리 정보만 지워져요.)", "배치 삭제",
-                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        if (!Dialogs.AppDialog.Confirm(this, $"'{p.Name}' 배치를 삭제할까요?",
+                "창이나 프로그램은 그대로 있어요. 저장한 자리 정보만 지워져요.", ok: "삭제", danger: true)) return;
         _host.Config.Presets.Remove(p);
         var s = _host.Config.Settings;
         if (s.StartupPresetId == p.Id) s.StartupPresetId = null;
@@ -285,6 +285,26 @@ public partial class MainWindow : Window
         int n = 1;
         while (used.Contains($"배치 {n}")) n++;
         return $"배치 {n}";
+    }
+
+    /// <summary>
+    /// Click on a monitor: edit the layout shown. While the editor is open the lock is paused so windows can be moved;
+    /// afterwards it re-locks to the saved (or unchanged, if cancelled) positions.
+    /// </summary>
+    private void EditLayout()
+    {
+        if (Selected is not { } p) return;
+        bool pausedHere = _host.Lock.State == LockState.Active; // any lock would fight the windows being moved
+        if (pausedHere) _host.Lock.TogglePause();
+        bool saved = SaveDialog.Edit(this, _host.Ws, p);
+        if (saved) _host.SaveConfig();
+        if (pausedHere && _host.Lock.State == LockState.Paused) _host.Lock.TogglePause();
+        else if (saved) _host.RefreshLock();
+        SelectEntry(null);
+        RefreshPreview();
+        StatusText.Text = saved
+            ? $"✔ '{p.Name}' 배치를 고쳤어요" + (pausedHere ? ". 다시 고정했어요." : ".")
+            : pausedHere ? "수정을 취소했어요. 창들을 원래 자리로 되돌리고 다시 고정했어요." : "수정을 취소했어요.";
     }
 
     private void OnRestartElevated(object sender, RoutedEventArgs e)

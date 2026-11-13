@@ -82,13 +82,26 @@ public sealed class MonitorPreview : FrameworkElement
         var monitorFill = TryFindResource("Monitor.Fill") as Brush ?? Brushes.DimGray;
         var monitorPen = new Pen(TryFindResource("Monitor.Stroke") as Brush ?? Brushes.Gray, 1.5);
         var labelBrush = TryFindResource("Monitor.Label") as Brush ?? Brushes.Gray;
+        var accent = (TryFindResource("Accent") as SolidColorBrush)?.Color ?? Color.FromRgb(0x4C, 0x6E, 0xF5);
+        _monitorRects.Clear();
         int index = 1;
         foreach (var m in _monitors.OrderBy(m => m.Bounds.X).ThenBy(m => m.Bounds.Y))
         {
             var r = Map(m.Bounds);
+            _monitorRects.Add((r, m.DevicePath));
+            double k = Lift(m.DevicePath);
+            dc.PushTransform(LiftTransform(r, k));
+            if (k > 0.01)
+            {
+                var glow = new SolidColorBrush(Color.FromArgb((byte)(70 * k), 0, 0, 0));
+                dc.DrawRoundedRectangle(glow, null, new Rect(r.X + 2, r.Y + 6 * k, r.Width - 4, r.Height), 8, 8);
+            }
             dc.DrawRoundedRectangle(monitorFill, monitorPen, r, 6, 6);
+            if (k > 0.01)
+                dc.DrawRoundedRectangle(null, new Pen(new SolidColorBrush(Color.FromArgb((byte)(255 * k), accent.R, accent.G, accent.B)), 2), r, 6, 6);
             DrawText(dc, $"모니터 {index++}{(m.IsPrimary ? " (메인)" : "")} · {m.Bounds.Width}×{m.Bounds.Height}",
                 new Point(r.X + 8, r.Y - 18), 11, labelBrush, r.Width - 16);
+            dc.Pop();
         }
 
         foreach (var pr in _rects)
@@ -97,6 +110,7 @@ public sealed class MonitorPreview : FrameworkElement
                 .OrderByDescending(m => IntersectionArea(m.Bounds, pr.Abs))
                 .First();
             var monitorBounds = Map(monitor.Bounds);
+            dc.PushTransform(LiftTransform(monitorBounds, Lift(monitor.DevicePath)));
             var contentBounds = new Rect(
                 monitorBounds.X + MonitorContentInset,
                 monitorBounds.Y + MonitorContentInset,
@@ -104,8 +118,7 @@ public sealed class MonitorPreview : FrameworkElement
                 Math.Max(0, monitorBounds.Height - MonitorContentInset * 2));
             var bounds = Map(pr.Abs);
             bounds.Intersect(contentBounds);
-            if (bounds.IsEmpty) continue;
-            if (bounds.Width <= WindowInset * 2 || bounds.Height <= WindowInset * 2) continue;
+            if (bounds.IsEmpty || bounds.Width <= WindowInset * 2 || bounds.Height <= WindowInset * 2) { dc.Pop(); continue; }
 
             // Keep a visible gap when saved windows touch at their edges.
             var r = new Rect(bounds.X + WindowInset, bounds.Y + WindowInset,
@@ -151,10 +164,72 @@ public sealed class MonitorPreview : FrameworkElement
                 dc.DrawRoundedRectangle(null, border, borderBounds,
                     Math.Max(0, radius - borderWidth / 2), Math.Max(0, radius - borderWidth / 2));
             _hit.Add((r, pr.Id));
+            dc.Pop();
         }
     }
 
-    /// <summary>Left click anywhere on the preview.</summary>
+    // ---------- hover lift: the monitor under the cursor rises a little and gets an accent outline ----------
+
+    private readonly List<(Rect Rect, string Path)> _monitorRects = [];
+    private readonly Dictionary<string, double> _lift = [];
+    private readonly System.Diagnostics.Stopwatch _clock = new();
+    private string? _hoverPath;
+    private bool _animating;
+
+    private double Lift(string path) => _lift.TryGetValue(path, out var v) ? v : 0;
+
+    private static Transform LiftTransform(Rect r, double k)
+    {
+        if (k <= 0.001) return Transform.Identity;
+        double s = 1 + 0.018 * k;
+        var g = new TransformGroup();
+        g.Children.Add(new ScaleTransform(s, s, r.X + r.Width / 2, r.Y + r.Height / 2));
+        g.Children.Add(new TranslateTransform(0, -4 * k));
+        return g;
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        var p = e.GetPosition(this);
+        var path = _monitorRects.FirstOrDefault(m => m.Rect.Contains(p)).Path;
+        if (path != _hoverPath) { _hoverPath = path; StartAnimation(); }
+        base.OnMouseMove(e);
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        _hoverPath = null;
+        StartAnimation();
+        base.OnMouseLeave(e);
+    }
+
+    private void StartAnimation()
+    {
+        if (_animating) return;
+        _animating = true;
+        _clock.Restart();
+        CompositionTarget.Rendering += Tick;
+    }
+
+    private void Tick(object? sender, EventArgs e)
+    {
+        double dt = Math.Min(0.05, _clock.Elapsed.TotalSeconds);
+        _clock.Restart();
+        bool moving = false;
+        foreach (var (_, path) in _monitorRects)
+        {
+            double target = path == _hoverPath ? 1 : 0, v = Lift(path);
+            double next = v + (target - v) * Math.Min(1, dt * 14);
+            if (Math.Abs(target - next) < 0.01) next = target; else moving = true;
+            _lift[path] = next;
+        }
+        InvalidateVisual();
+        if (moving) return;
+        CompositionTarget.Rendering -= Tick;
+        _animating = false;
+    }
+
+    /// <summary>Left click on a monitor frame (the grey stage around the monitors does nothing).</summary>
     public event Action? Clicked;
 
     /// <summary>Right click on a window tile.</summary>
@@ -171,7 +246,7 @@ public sealed class MonitorPreview : FrameworkElement
     {
         var id = HitTest(e.GetPosition(this));
         if (ClickSelectsRects) { if (id != Guid.Empty) RectClicked?.Invoke(id); }
-        else Clicked?.Invoke();
+        else if (_monitorRects.Any(m => m.Rect.Contains(e.GetPosition(this)))) Clicked?.Invoke();
         base.OnMouseLeftButtonDown(e);
     }
 
