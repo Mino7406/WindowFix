@@ -58,6 +58,12 @@ public sealed class AppSettings
 
     /// <summary>Run WindowFix elevated (needed to move windows of admin apps such as some games); boot via a scheduled task.</summary>
     public bool AlwaysAdmin { get; set; }
+
+    /// <summary>Look for a new GitHub release at start and once a day.</summary>
+    public bool AutoUpdateCheck { get; set; } = true;
+    public DateTime? LastUpdateCheckUtc { get; set; }
+    /// <summary>Release tag the user chose to skip ("이 버전 건너뛰기").</summary>
+    public string? SkippedUpdateTag { get; set; }
     public bool LockEnabled { get; set; }
     public Guid? CurrentPresetId { get; set; }
     public Guid? StartupPresetId { get; set; }
