@@ -126,7 +126,15 @@ public partial class MainWindow : Window
         AdminCheck.IsChecked = s.AlwaysAdmin;
         UpdateCheck.IsChecked = s.AutoUpdateCheck;
         if (string.IsNullOrEmpty(VersionText.Text)) VersionText.Text = $"현재 버전 {Updater.CurrentText}";
-        AdminState.Text = _host.IsElevated ? "● 지금 관리자 권한으로 실행 중이에요." : "지금은 일반 권한으로 실행 중이에요.";
+        AdminState.Inlines.Clear();
+        if (_host.IsElevated)
+        {
+            var dot = new System.Windows.Documents.Run("● ");
+            dot.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "Accent"); // blue, follows the theme
+            AdminState.Inlines.Add(dot);
+            AdminState.Inlines.Add(new System.Windows.Documents.Run("지금 관리자 권한으로 실행 중이에요."));
+        }
+        else AdminState.Inlines.Add(new System.Windows.Documents.Run("지금은 일반 권한으로 실행 중이에요."));
         if (_host.IsElevated) AdminBanner.Visibility = Visibility.Collapsed;
     }
 
