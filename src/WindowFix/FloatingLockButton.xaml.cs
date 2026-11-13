@@ -48,6 +48,13 @@ public partial class FloatingLockButton : Window
     {
         _host = host;
         InitializeComponent();
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnPreferenceChanged;
+        Closed += (_, _) =>
+        {
+            Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
+            Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnPreferenceChanged;
+        };
         SourceInitialized += (_, _) =>
         {
             long ex = GetWindowLongPtr(Hwnd, GWL_EXSTYLE);
@@ -107,6 +114,33 @@ public partial class FloatingLockButton : Window
     }
 
     /// <summary>Show glued to the saved edge spot, or the default spot on the secondary monitor's right edge.</summary>
+    /// <summary>
+    /// Re-glue to the saved spot with a size for the monitor's current DPI: after a DPI change (mixed-scale monitors),
+    /// a display change (monitor unplugged, laptop undocked) or a work-area change (taskbar moved/resized).
+    /// </summary>
+    private void Reposition()
+    {
+        if (!_placed || _dragging || !IsVisible) return;
+        var s = _host.Config.Settings;
+        var (len, thick) = TabSize();
+        Place(LockButtonPlacement.Resolve(s.LockButtonX, s.LockButtonY, _host.Ws.GetMonitors(), len, thick));
+    }
+
+    protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+    {
+        base.OnDpiChanged(oldDpi, newDpi);
+        Dispatcher.BeginInvoke(Reposition, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void OnDisplayChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(Reposition, System.Windows.Threading.DispatcherPriority.Background);
+
+    private void OnPreferenceChanged(object? sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category is Microsoft.Win32.UserPreferenceCategory.Desktop or Microsoft.Win32.UserPreferenceCategory.General)
+            Dispatcher.BeginInvoke(Reposition, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
     public void ShowAtSavedSpot()
     {
         Show();

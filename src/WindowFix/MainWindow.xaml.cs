@@ -384,7 +384,10 @@ public partial class MainWindow : Window
         if (Selected is not { } p) return;
         bool pausedHere = _host.Lock.State == LockState.Active; // any lock would fight the windows being moved
         if (pausedHere) _host.Lock.TogglePause();
-        bool saved = SaveDialog.Edit(this, _host.Ws, p, monitorPath);
+        _host.IsEditing = true;
+        bool saved;
+        try { saved = SaveDialog.Edit(this, _host.Ws, p, monitorPath); }
+        finally { _host.IsEditing = false; }
         if (saved) _host.SaveConfig();
         if (pausedHere && _host.Lock.State == LockState.Paused) _host.Lock.TogglePause();
         else if (saved) _host.RefreshLock();

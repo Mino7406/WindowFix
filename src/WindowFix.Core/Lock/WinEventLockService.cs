@@ -138,7 +138,7 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
         if (d.Action is LockAction.Revert or LockAction.PlaceNew)
             ws.SetPlacement(hwnd, d.Target, d.Maximize);
         if (shown) SyncLocationHooks(); // a newly shown window may now be bound (maybe in a new process)
-        else if (d.RetryAfter is { } wait)
+        if (d.RetryAfter is { } wait)
             Schedule(hwnd, shown: false, wait + TimeSpan.FromMilliseconds(100)); // look again once the cooldown ends
     }
 

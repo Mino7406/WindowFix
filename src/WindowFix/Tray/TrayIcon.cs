@@ -96,6 +96,9 @@ public sealed class TrayIcon : IDisposable
 
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(new Forms.ToolStripMenuItem("WindowFix 끝내기", null, (_, _) => _host.Shutdown()) { Tag = "danger" });
+        if (_host.IsEditing) // while a layout is being edited only opening and quitting make sense
+            foreach (Forms.ToolStripItem item in menu.Items)
+                if (item is Forms.ToolStripMenuItem mi && mi.Text is not ("WindowFix 열기" or "WindowFix 끝내기")) mi.Enabled = false;
     }
 
     public void Dispose()

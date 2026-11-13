@@ -22,6 +22,7 @@ public sealed class AppHost : IDisposable
     private MainWindow? _main;
     private FloatingLockButton? _button;
     private bool _startupRunning;
+    private Task _syncChain = Task.CompletedTask;
     private Tray.TrayIcon? _tray;
 
     public AppHost(App app)
@@ -95,22 +96,34 @@ public sealed class AppHost : IDisposable
     {
         var s = Config.Settings;
         var preset = Config.Presets.FirstOrDefault(p => p.Id == (s.StartupPresetId ?? s.CurrentPresetId));
+        // The startup layout becomes the current one *before* the lock is armed, so the lock and the restore
+        // agree on where windows go (otherwise they fight until the restore ends).
+        if (preset is not null && s.CurrentPresetId != preset.Id)
+        {
+            s.CurrentPresetId = preset.Id;
+            SaveConfig();
+        }
         // Arm the lock first: windows that show up while the boot restore is still waiting are placed the moment
         // they appear (event-driven), instead of only after every app in the layout has opened.
-        if (s.LockEnabled && Lock.State == LockState.Off) Lock.SetEnabled(true);
+        try
+        {
+            if (s.LockEnabled && Lock.State == LockState.Off) Lock.SetEnabled(true);
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex); // never let a failure here skip the restore itself
+        }
         if (preset is not null)
         {
             _startupRunning = true;
             try
             {
                 var report = await new StartupSequence(Applier, SystemClock.Instance, d => Task.Delay(d)).RunAsync(preset, CancellationToken.None);
-                if (s.CurrentPresetId != preset.Id)
+                if (s.CurrentPresetId == preset.Id) // the user may have applied another layout meanwhile: keep theirs
                 {
-                    s.CurrentPresetId = preset.Id;
-                    SaveConfig();
+                    Applied?.Invoke(preset, report);
+                    RefreshLock(); // re-bind with the final positions (apps often resize themselves while loading)
                 }
-                Applied?.Invoke(preset, report);
-                RefreshLock(); // re-bind with the final positions (apps often resize themselves while loading)
             }
             catch (Exception ex)
             {
@@ -162,7 +175,20 @@ public sealed class AppHost : IDisposable
 
     public void SaveConfig()
     {
-        _store.Save(Config);
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                _store.Save(Config);
+                break;
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            {
+                if (attempt < 3) { Thread.Sleep(150); continue; } // antivirus / OneDrive briefly holding the file
+                App.LogError(ex);
+                break; // keep running with the settings in memory; the next save tries again
+            }
+        }
         SyncRunKey();
         ConfigChanged?.Invoke();
     }
@@ -180,7 +206,6 @@ public sealed class AppHost : IDisposable
         var s = Config.Settings;
         var state = (s.AlwaysAdmin, s.LockEnabled || s.StartupPresetId is not null);
         if (_syncedStartup == state) return;
-        _syncedStartup = state;
         var snapshot = new AppSettings
         {
             AlwaysAdmin = s.AlwaysAdmin,
@@ -189,20 +214,23 @@ public sealed class AppHost : IDisposable
         };
         bool elevated = Ws.SelfElevated;
         var exe = Environment.ProcessPath!;
-        Task.Run(() =>
+        _syncedStartup = state; // optimistic; reset below if the sync fails so the next save retries
+        lock (_syncLock)
         {
-            lock (_syncLock) // one at a time, in order
+            // chained, so syncs run strictly in order and the last one always wins
+            _syncChain = _syncChain.ContinueWith(_ =>
             {
                 try
                 {
                     StartupRegistration.Sync(snapshot, exe, new RegistryRunKey(), new SchtasksElevatedTasks(), elevated);
                 }
-                catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException)
+                catch (Exception ex)
                 {
-                    // The app still works; it just won't start with Windows.
+                    App.LogError(ex); // the app still works; it just may not start with Windows
+                    _app.Dispatcher.BeginInvoke(() => _syncedStartup = null);
                 }
-            }
-        });
+            }, TaskScheduler.Default);
+        }
     }
 
     /// <summary>Floating lock button: only while the lock is on and the setting allows it. Tray icon: per setting.</summary>
@@ -283,6 +311,9 @@ public sealed class AppHost : IDisposable
     }
 
     public const string RestartedArg = "--restarted";
+
+    /// <summary>A layout editor is open (lock paused on purpose): the tray must not re-arm or apply meanwhile.</summary>
+    public bool IsEditing { get; set; }
 
     // ---------- updates (GitHub releases) ----------
 
@@ -391,6 +422,8 @@ public sealed class AppHost : IDisposable
 
     public void Shutdown()
     {
+        // let a pending startup-registration change finish, or the app could silently stop (or keep) starting with Windows
+        try { _syncChain.Wait(TimeSpan.FromSeconds(15)); } catch (AggregateException) { }
         _lockService.Stop();
         _app.Shutdown();
     }

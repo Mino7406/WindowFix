@@ -213,7 +213,9 @@ public partial class SaveDialog : Window
 
         // Entries whose app is open map to a live window: kept (with their own settings) only if still checked.
         // Entries whose app isn't open right now can't be shown here, so they stay exactly as they were.
-        var live = ResolveEntries(_ws.GetWindows(includeHidden: false));
+        // Same filter as the list: a minimized/hidden window was never shown, so its entry must not count as "unchecked".
+        var live = ResolveEntries(_ws.GetWindows(includeHidden: false)
+            .Where(w => WindowMatcher.IsCandidate(w) && w.ProcessId != Environment.ProcessId && !w.IsMinimized).ToList());
         var merged = _editing!.Windows.Where(en => !live.ContainsValue(en)).ToList();
         for (int i = 0; i < selected.Count; i++)
         {
