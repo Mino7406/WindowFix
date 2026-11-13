@@ -339,7 +339,7 @@
                                     </StackPanel>
                                 </CheckBox>
                                 <CheckBox x:Name="BootNotifyCheck" Click="OnBootNotifyClick" Margin="46,10,0,0">
-                                    <TextBlock Text="켤 때 결과 알림 (몇 개 창을 맞췄는지, 못 찾은 창이 있는지)" TextWrapping="Wrap" />
+                                    <TextBlock Text="시작 알림 받기" ToolTip="켤 때 배치를 맞추면, 맞춘 창과 못 찾은 창을 알림으로 알려 줘요." />
                                 </CheckBox>
                                 <TextBlock x:Name="StartupPickLabel" Text="어떤 배치로 맞출까요?" Style="{StaticResource Hint}" Margin="46,10,0,4" />
                                 <Border x:Name="StartupPickBox" Background="{DynamicResource Bg.Stage}" CornerRadius="8" Padding="2" Margin="46,0,0,0" HorizontalAlignment="Left">
