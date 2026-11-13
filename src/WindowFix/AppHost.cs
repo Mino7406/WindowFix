@@ -49,7 +49,10 @@ public sealed class AppHost : IDisposable
 
     public void Run(string[] args)
     {
-        _instance = SingleInstance.TryAcquire(() => _app.Dispatcher.BeginInvoke(ShowMainWindow));
+        // An elevated restart may start while the previous instance is still shutting down: give it a moment.
+        bool restarted = args.Contains(RestartedArg) || Ws.SelfElevated;
+        _instance = SingleInstance.TryAcquire(() => _app.Dispatcher.BeginInvoke(ShowMainWindow),
+            restarted ? TimeSpan.FromSeconds(8) : TimeSpan.Zero);
         if (_instance is null)
         {
             _app.Shutdown();
@@ -67,6 +70,8 @@ public sealed class AppHost : IDisposable
             Shutdown();
             return;
         }
+        if (Config.Settings.AlwaysAdmin && !Ws.SelfElevated && !args.Contains(RestartedArg) && TryElevate(args))
+            return;
         SyncRunKey(); // the exe may have been moved since the last save
         ThemeManager.Init(() => Config.Settings.Theme);
         _tray = new Tray.TrayIcon(this);
@@ -160,7 +165,7 @@ public sealed class AppHost : IDisposable
     {
         try
         {
-            StartupRegistration.Sync(Config.Settings, Environment.ProcessPath!, new RegistryRunKey());
+            StartupRegistration.Sync(Config.Settings, Environment.ProcessPath!, new RegistryRunKey(), new SchtasksElevatedTasks(), Ws.SelfElevated);
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException)
         {
@@ -236,6 +241,63 @@ public sealed class AppHost : IDisposable
             pid => Ws.GetWindows(includeHidden: true).Where(w => w.ProcessId == pid).ToList());
         tracker.BindInitial(report.Results);
         _lockService.Start(tracker);
+    }
+
+    public const string RestartedArg = "--restarted";
+
+    public bool IsElevated => Ws.SelfElevated;
+
+    /// <summary>
+    /// "Always admin" on but we started as a normal app: hand over to the elevated scheduled task (no UAC), or fall back
+    /// to a UAC prompt. Returns true when an elevated instance was started and this one is exiting.
+    /// </summary>
+    private bool TryElevate(string[] args)
+    {
+        bool startup = args.Contains(StartupRegistration.StartupArg, StringComparer.OrdinalIgnoreCase);
+        _instance?.Dispose(); // let the elevated instance take over the single-instance lock
+        _instance = null;
+        var tasks = new SchtasksElevatedTasks();
+        if (tasks.Run(startup ? StartupRegistration.StartupTask : StartupRegistration.OpenTask) || StartElevated(startup))
+        {
+            _app.Shutdown();
+            return true;
+        }
+        _instance = SingleInstance.TryAcquire(() => _app.Dispatcher.BeginInvoke(ShowMainWindow), TimeSpan.FromSeconds(2));
+        return false; // UAC declined: keep running as a normal app
+    }
+
+    private static bool StartElevated(bool startup)
+    {
+        try
+        {
+            using var _ = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!,
+                startup ? $"{RestartedArg} {StartupRegistration.StartupArg}" : RestartedArg)
+            {
+                UseShellExecute = true,
+                Verb = "runas",
+            });
+            return true;
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return false; // the user said no to UAC
+        }
+    }
+
+    /// <summary>Restart this app elevated (UAC prompt). False when the user declined.</summary>
+    public bool RestartElevated()
+    {
+        _lockService.Stop();
+        _instance?.Dispose();
+        _instance = null;
+        if (StartElevated(startup: false))
+        {
+            _app.Shutdown();
+            return true;
+        }
+        _instance = SingleInstance.TryAcquire(() => _app.Dispatcher.BeginInvoke(ShowMainWindow), TimeSpan.FromSeconds(2));
+        if (Lock.State == LockState.Active) OnLockStateChanged(LockState.Active);
+        return false;
     }
 
     public void Shutdown()

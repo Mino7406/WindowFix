@@ -20,9 +20,21 @@ public sealed class SingleInstance : IDisposable
         _wait = ThreadPool.RegisterWaitForSingleObject(showEvent, (_, _) => onShowRequested(), null, Timeout.Infinite, executeOnlyOnce: false);
     }
 
-    public static SingleInstance? TryAcquire(Action onShowRequested)
+    /// <param name="waitForPrevious">How long to wait for a previous instance that is about to exit (elevated restart).</param>
+    public static SingleInstance? TryAcquire(Action onShowRequested, TimeSpan waitForPrevious = default)
     {
         var mutex = new Mutex(initiallyOwned: true, MutexName, out bool createdNew);
+        if (!createdNew && waitForPrevious > TimeSpan.Zero)
+        {
+            try
+            {
+                createdNew = mutex.WaitOne(waitForPrevious);
+            }
+            catch (AbandonedMutexException)
+            {
+                createdNew = true; // the previous instance exited without releasing it
+            }
+        }
         if (!createdNew)
         {
             mutex.Dispose();

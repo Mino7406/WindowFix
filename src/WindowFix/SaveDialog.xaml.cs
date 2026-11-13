@@ -27,13 +27,13 @@ public partial class SaveDialog : Window
         var windows = ws.GetWindows(includeHidden: false)
             .Where(w => WindowMatcher.IsCandidate(w) && w.ProcessId != Environment.ProcessId && !w.IsMinimized)
             .ToList();
-        var preselected = PresetCapture.DefaultSelection(windows, _monitors).Select(w => w.Handle).ToHashSet();
+        var preselected = PresetCapture.DefaultSelection(windows, _monitors).Where(w => !w.IsElevated).Select(w => w.Handle).ToHashSet();
         var ordered = _monitors.OrderBy(m => m.Bounds.X).ThenBy(m => m.Bounds.Y).ToList();
 
         _items = windows.Select(w =>
         {
             var m = Placement.MonitorOf(w.Rect, _monitors);
-            var c = new Candidate(w, IconFor(w.ExePath), $"모니터 {ordered.IndexOf(m) + 1}{(m.IsPrimary ? " (메인)" : "")} · {w.Rect.Width}×{w.Rect.Height}")
+            var c = new Candidate(w, IconFor(w.ExePath), (w.IsElevated && !ws.SelfElevated ? "⚠ 관리자 권한 앱 (게임 등) · " : "") + $"모니터 {ordered.IndexOf(m) + 1}{(m.IsPrimary ? " (메인)" : "")} · {w.Rect.Width}×{w.Rect.Height}")
             {
                 IsChecked = preselected.Contains(w.Handle),
             };

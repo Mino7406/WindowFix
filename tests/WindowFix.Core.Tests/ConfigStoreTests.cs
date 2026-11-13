@@ -131,6 +131,62 @@ public sealed class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void Load_ConfigFromFirstRelease_KeepsLayoutsAndFillsNewSettings()
+    {
+        // Exactly the shape v0.1.0 (first public build) wrote: no Theme, AlwaysAdmin or SavedTitle yet.
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(ConfigPath, """
+        {
+          "Version": 1,
+          "Presets": [
+            {
+              "Id": "a73976d6-f1bf-4d84-a3e1-34ae7b948b65",
+              "Name": "평소 배치",
+              "Windows": [
+                {
+                  "Id": "98b92ca3-80e6-4272-915c-5358cfaa79de",
+                  "Match": { "ExeName": "KakaoTalk.exe", "TitleContains": null, "ClassName": "EVA_Window_Dblclk" },
+                  "Monitor": { "DevicePath": "\\\\?\\DISPLAY#MSI3CA7#5&3a85aa70&1&UID4355", "IsPrimary": false, "Width": 2560, "Height": 1440 },
+                  "Rect": { "X": 1984, "Y": 0, "Width": 576, "Height": 1189 },
+                  "Maximized": false,
+                  "LaunchIfMissing": true,
+                  "LaunchPath": "C:\\Program Files (x86)\\Kakao\\KakaoTalk\\KakaoTalk.exe",
+                  "LaunchArgs": null,
+                  "DisplayName": "KakaoTalk"
+                }
+              ]
+            }
+          ],
+          "Settings": {
+            "LockEnabled": true,
+            "CurrentPresetId": "a73976d6-f1bf-4d84-a3e1-34ae7b948b65",
+            "StartupPresetId": "a73976d6-f1bf-4d84-a3e1-34ae7b948b65",
+            "ShowTrayIcon": false,
+            "ShowLockButton": true,
+            "LockButtonX": 5106,
+            "LockButtonY": 1104
+          }
+        }
+        """);
+
+        var c = new ConfigStore(ConfigPath).Load();
+
+        var p = Assert.Single(c.Presets);
+        Assert.Equal("평소 배치", p.Name);
+        var w = Assert.Single(p.Windows);
+        Assert.Equal("KakaoTalk.exe", w.Match.ExeName);
+        Assert.Equal(new RelRect(1984, 0, 576, 1189), w.Rect);
+        Assert.True(w.LaunchIfMissing);
+        Assert.Null(w.Match.SavedTitle);
+        Assert.True(c.Settings.LockEnabled);
+        Assert.Equal(p.Id, c.Settings.StartupPresetId);
+        Assert.Equal(5106, c.Settings.LockButtonX);
+        Assert.Equal(ThemeMode.System, c.Settings.Theme);
+        Assert.False(c.Settings.AlwaysAdmin);
+        Assert.False(File.Exists(ConfigPath + ".bak")); // not treated as corrupt
+    }
+
+    [Fact]
     public void Save_IsAtomic_TempThenReplace()
     {
         var store = new ConfigStore(ConfigPath); // directory does not exist yet

@@ -154,13 +154,32 @@ public sealed class MonitorPreview : FrameworkElement
         }
     }
 
+    /// <summary>Left click anywhere on the preview.</summary>
+    public event Action? Clicked;
+
+    /// <summary>Right click on a window tile.</summary>
+    public event Action<Guid>? RectRightClicked;
+
+    /// <summary>When true a left click reports the tile (save dialog: toggle a window); otherwise it raises <see cref="Clicked"/>.</summary>
+    public bool ClickSelectsRects { get; set; } = true;
+
+    private Guid HitTest(Point p) =>
+        // prefer the smallest rect when several overlap
+        _hit.Where(h => h.Screen.Contains(p)).OrderBy(h => h.Screen.Width * h.Screen.Height).FirstOrDefault().Id;
+
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
-        var p = e.GetPosition(this);
-        // Topmost (last drawn) first; prefer the smallest rect when several overlap.
-        var hit = _hit.Where(h => h.Screen.Contains(p)).OrderBy(h => h.Screen.Width * h.Screen.Height).FirstOrDefault();
-        if (hit.Id != Guid.Empty) RectClicked?.Invoke(hit.Id);
+        var id = HitTest(e.GetPosition(this));
+        if (ClickSelectsRects) { if (id != Guid.Empty) RectClicked?.Invoke(id); }
+        else Clicked?.Invoke();
         base.OnMouseLeftButtonDown(e);
+    }
+
+    protected override void OnMouseRightButtonUp(MouseButtonEventArgs e)
+    {
+        var id = HitTest(e.GetPosition(this));
+        if (id != Guid.Empty) { RectRightClicked?.Invoke(id); e.Handled = true; }
+        base.OnMouseRightButtonUp(e);
     }
 
     private void DrawText(DrawingContext dc, string text, Point at, double size, Brush brush, double maxWidth)

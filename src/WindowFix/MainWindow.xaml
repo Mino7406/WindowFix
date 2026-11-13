@@ -11,6 +11,18 @@
             <Setter Property="Foreground" Value="{DynamicResource Fg.Secondary}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <EventSetter Event="PreviewMouseLeftButtonUp" Handler="OnLayoutItemClick" />
+            <Setter Property="ContextMenu">
+                <Setter.Value>
+                    <ContextMenu>
+                        <MenuItem Header="이 배치로 맞추기" Click="OnMenuApply" />
+                        <Separator />
+                        <MenuItem Header="이름 바꾸기" Click="OnMenuRename" />
+                        <MenuItem Header="삭제" Click="OnMenuDelete" />
+                    </ContextMenu>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ToolTip" Value="우클릭하면 이름 바꾸기·삭제를 할 수 있어요." />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -64,7 +76,7 @@
                 <RadioButton x:Name="SettingsNav" DockPanel.Dock="Bottom" GroupName="Nav" Style="{StaticResource NavItem}" Click="OnSettingsNav">
                     <TextBlock Text="⚙  설정" />
                 </RadioButton>
-                <Button DockPanel.Dock="Top" Content="+ 새 배치 저장" Click="OnSaveCurrent" Style="{StaticResource Primary}"
+                <Button DockPanel.Dock="Top" Content="+ 새 배치 생성" Click="OnSaveCurrent" Style="{StaticResource Primary}"
                         Margin="0,0,0,14" HorizontalAlignment="Stretch"
                         ToolTip="지금 화면에 놓인 창들의 위치와 크기를 새 배치로 저장해요." />
                 <TextBlock DockPanel.Dock="Top" Text="저장한 배치" Style="{StaticResource Hint}" Margin="8,0,0,6" />
@@ -91,10 +103,6 @@
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
                         <Button x:Name="ApplyButton" DockPanel.Dock="Right" Content="이 배치로 맞추기" Click="OnApply" Margin="0"
                                 ToolTip="고른 배치대로 창들을 지금 바로 옮겨요." />
-                        <Button x:Name="DeleteButton" DockPanel.Dock="Right" Content="삭제" Click="OnDelete"
-                                ToolTip="이 배치를 지워요. 창이나 프로그램은 그대로 있어요." />
-                        <Button x:Name="RenameButton" DockPanel.Dock="Right" Content="이름 바꾸기" Click="OnRename"
-                                ToolTip="이 배치의 이름을 바꿔요." />
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock x:Name="PresetTitle" Text="배치 없음" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <Border x:Name="StatusChip" CornerRadius="10" Padding="9,3" Margin="12,2,0,0" VerticalAlignment="Center">
@@ -102,6 +110,18 @@
                             </Border>
                         </StackPanel>
                     </DockPanel>
+
+                    <Border x:Name="AdminBanner" DockPanel.Dock="Top" CornerRadius="10" BorderThickness="1" Padding="14,10" Margin="0,0,0,12"
+                            Background="{DynamicResource Lock.Paused.Bg}" BorderBrush="{DynamicResource Lock.Paused.Border}" Visibility="Collapsed">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="관리자 권한으로 다시 실행" Click="OnRestartElevated" Style="{StaticResource Primary}" Margin="0" />
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="⚠ 관리자 권한 앱이 있어요" FontWeight="SemiBold" Foreground="{DynamicResource Lock.Paused.Fg}" />
+                                <TextBlock x:Name="AdminBannerText" Style="{StaticResource Hint}" Foreground="{DynamicResource Fg.Secondary}"
+                                           Text="일부 게임처럼 관리자 권한으로 켜진 창은 WindowFix도 관리자 권한이어야 옮길 수 있어요." />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
 
                     <Border x:Name="LockCard" DockPanel.Dock="Top" CornerRadius="10" BorderThickness="1" Padding="16,12" Margin="0,0,0,14">
                         <CheckBox x:Name="LockCheck" Click="OnLockClick" VerticalAlignment="Center" Margin="0"
@@ -119,12 +139,33 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <Border Background="{DynamicResource Bg.Stage}" CornerRadius="10">
+                        <DockPanel>
+                        <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                            <TextBlock x:Name="AppsLabel" Text="이 배치의 창 — 누르면 그 창 설정을 열어요" Style="{StaticResource Hint}" Margin="2,0,0,6" />
+                            <ItemsControl x:Name="AppList">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Click="OnAppChipClick" Tag="{Binding Id}" Margin="0,0,8,8" Padding="10,6">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Ellipse Width="10" Height="10" Fill="{Binding Brush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                                <TextBlock Text="  ⚙" Foreground="{DynamicResource Fg.Muted}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                        <Border Background="{DynamicResource Bg.Stage}" CornerRadius="10" Cursor="Hand"
+                                ToolTip="누르면 지금 화면 배치로 새 배치를 만들어요.">
                             <Grid>
                                 <c:MonitorPreview x:Name="Preview" Margin="10,10,10,30" />
                                 <TextBlock x:Name="PreviewHint" Foreground="{DynamicResource Fg.Muted}" HorizontalAlignment="Center"
                                            VerticalAlignment="Bottom" Margin="0,0,0,9" FontSize="12"
-                                           Text="창 그림을 누르면 위치나 설정을 고칠 수 있어요." />
+                                           Text="누르면 지금 화면 배치로 새 배치를 만들어요 · 창을 우클릭하면 그 창 설정" />
                                 <Border x:Name="Guide" Background="{DynamicResource Guide.Overlay}" CornerRadius="10" Visibility="Collapsed">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="440">
                                         <TextBlock Text="처음 오셨나요? 세 단계면 끝나요." FontSize="20" FontWeight="SemiBold"
@@ -139,7 +180,7 @@
                                         <DockPanel Margin="0,0,0,16">
                                             <Border Style="{StaticResource StepNumber}"><TextBlock Text="2" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
                                             <StackPanel>
-                                                <TextBlock Text="[+ 새 배치 저장]을 누르세요" FontSize="15" FontWeight="SemiBold" />
+                                                <TextBlock Text="[+ 새 배치 생성]을 누르세요" FontSize="15" FontWeight="SemiBold" />
                                                 <TextBlock Style="{StaticResource Hint}" FontSize="12.5" Text="떠 있는 창 목록이 나오면, 고정할 창에 체크하고 저장하면 돼요." />
                                             </StackPanel>
                                         </DockPanel>
@@ -150,12 +191,13 @@
                                                 <TextBlock Style="{StaticResource Hint}" FontSize="12.5" Text="이제 창을 실수로 건드려도 제자리로 돌아와요. 컴퓨터를 껐다 켜도 유지돼요." />
                                             </StackPanel>
                                         </DockPanel>
-                                        <Button Content="+ 새 배치 저장" Click="OnSaveCurrent" Style="{StaticResource Primary}"
+                                        <Button Content="+ 새 배치 생성" Click="OnSaveCurrent" Style="{StaticResource Primary}"
                                                 HorizontalAlignment="Center" Padding="22,9" FontSize="14" Margin="0" />
                                     </StackPanel>
                                 </Border>
                             </Grid>
                         </Border>
+                        </DockPanel>
 
                         <Border x:Name="EditPanel" Grid.Column="1" Width="280" Margin="14,0,0,0" Style="{StaticResource Card}" Visibility="Collapsed">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -167,33 +209,47 @@
                                     </DockPanel>
                                     <TextBlock Text="이름" Style="{StaticResource Label}" />
                                     <TextBox x:Name="NameBox" Margin="0,4,0,12" />
-                                    <TextBlock Text="위치와 크기" Style="{StaticResource Label}" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="모니터 왼쪽 위 모서리에서부터의 거리예요 (픽셀). 보통은 손대지 않아도 돼요." Margin="0,2,0,6" />
-                                    <UniformGrid Columns="4">
-                                        <TextBlock Text="가로" Style="{StaticResource Hint}" />
-                                        <TextBlock Text="세로" Style="{StaticResource Hint}" />
-                                        <TextBlock Text="너비" Style="{StaticResource Hint}" />
-                                        <TextBlock Text="높이" Style="{StaticResource Hint}" />
-                                    </UniformGrid>
-                                    <UniformGrid Columns="4" Margin="0,3,0,10">
-                                        <TextBox x:Name="XBox" Margin="0,0,4,0" />
-                                        <TextBox x:Name="YBox" Margin="0,0,4,0" />
-                                        <TextBox x:Name="WBox" Margin="0,0,4,0" />
-                                        <TextBox x:Name="HBox" />
-                                    </UniformGrid>
-                                    <CheckBox x:Name="MaxCheck" Content="최대화 상태로 두기" ToolTip="이 창을 모니터를 꽉 채운 상태로 고정해요." />
                                     <CheckBox x:Name="LaunchCheck" ToolTip="배치를 맞출 때 이 프로그램이 꺼져 있으면 켜 주고, 트레이에 숨어 있으면 꺼내서 제자리에 놓아요.">
                                         <TextBlock Text="꺼져 있으면 자동으로 켜기 (숨어 있으면 꺼내기)" TextWrapping="Wrap" />
                                     </CheckBox>
-                                    <Expander Header="고급 설정" Margin="0,12,0,0" Foreground="{DynamicResource Fg.Secondary}">
+                                    <CheckBox x:Name="MaxCheck" Content="최대화 상태로 두기" ToolTip="이 창을 모니터를 꽉 채운 상태로 고정해요." />
+
+                                    <Expander Header="위치와 크기 직접 고치기" Margin="0,12,0,0" Foreground="{DynamicResource Fg.Secondary}">
                                         <StackPanel Margin="0,8,0,0">
-                                            <TextBlock Text="제목에 이 글자가 있는 창만" Style="{StaticResource Label}" />
-                                            <TextBlock Style="{StaticResource Hint}" Text="같은 프로그램 창이 여러 개일 때 쓰세요. 예: 크롬에서 'YouTube'" />
-                                            <TextBox x:Name="TitleBox" Margin="0,4,0,10" />
-                                            <TextBlock Text="실행할 파일" Style="{StaticResource Label}" />
-                                            <TextBox x:Name="PathBox" Margin="0,4,0,10" />
-                                            <TextBlock Text="실행할 때 붙일 옵션" Style="{StaticResource Label}" />
-                                            <TextBox x:Name="ArgsBox" Margin="0,4,0,10" />
+                                            <TextBlock Style="{StaticResource Hint}" Text="보통은 손대지 않아도 돼요. 창을 원하는 자리에 놓고 새 배치를 만드는 게 더 쉬워요. 숫자는 모니터 왼쪽 위 모서리에서부터의 픽셀이에요." />
+                                            <UniformGrid Columns="4" Margin="0,6,0,0">
+                                                <TextBlock Text="가로" Style="{StaticResource Hint}" />
+                                                <TextBlock Text="세로" Style="{StaticResource Hint}" />
+                                                <TextBlock Text="너비" Style="{StaticResource Hint}" />
+                                                <TextBlock Text="높이" Style="{StaticResource Hint}" />
+                                            </UniformGrid>
+                                            <UniformGrid Columns="4" Margin="0,3,0,0">
+                                                <TextBox x:Name="XBox" Margin="0,0,4,0" />
+                                                <TextBox x:Name="YBox" Margin="0,0,4,0" />
+                                                <TextBox x:Name="WBox" Margin="0,0,4,0" />
+                                                <TextBox x:Name="HBox" />
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Expander>
+
+                                    <Expander Header="고급 설정" Margin="0,8,0,0" Foreground="{DynamicResource Fg.Secondary}">
+                                        <StackPanel Margin="0,8,0,0">
+                                            <TextBlock Text="같은 프로그램 창이 여러 개일 때" Style="{StaticResource Label}" FontWeight="SemiBold" />
+                                            <TextBlock Style="{StaticResource Hint}" Text="제목에 이 글자가 들어간 창만 고정해요. 예: 크롬 창 중 'YouTube'만" />
+                                            <DockPanel Margin="0,4,0,12">
+                                                <Button DockPanel.Dock="Right" Content="지금 창 제목 가져오기" Click="OnPickTitle" Margin="6,0,0,0" Padding="8,4"
+                                                        ToolTip="지금 떠 있는 이 프로그램의 창 제목을 채워 넣어요. 필요 없는 부분은 지우세요." />
+                                                <TextBox x:Name="TitleBox" />
+                                            </DockPanel>
+
+                                            <TextBlock Text="자동으로 켤 때 실행할 파일" Style="{StaticResource Label}" FontWeight="SemiBold" />
+                                            <TextBlock Style="{StaticResource Hint}" Text="'꺼져 있으면 자동으로 켜기'를 쓸 때만 필요해요. 보통은 저장할 때 알아서 채워져요." />
+                                            <DockPanel Margin="0,4,0,8">
+                                                <Button DockPanel.Dock="Right" Content="찾아보기…" Click="OnBrowseExe" Margin="6,0,0,0" Padding="8,4" />
+                                                <TextBox x:Name="PathBox" />
+                                            </DockPanel>
+                                            <TextBlock Text="실행 옵션 (선택)" Style="{StaticResource Hint}" />
+                                            <TextBox x:Name="ArgsBox" Margin="0,4,0,10" ToolTip="예: 디스코드는 --processStart Discord.exe" />
                                             <TextBlock x:Name="MatchInfo" Style="{StaticResource Hint}" />
                                         </StackPanel>
                                     </Expander>
@@ -225,12 +281,40 @@
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                            <CheckBox x:Name="StartupCheck" Click="OnStartupClick" Margin="0">
-                                <StackPanel>
-                                    <TextBlock x:Name="StartupLabel" Text="컴퓨터 켤 때 배치 맞추기" FontWeight="SemiBold" />
-                                    <TextBlock Style="{StaticResource Hint}" Text="컴퓨터를 켜면 창들이 늦게 떠도 기다렸다가 제자리에 놓아 줘요." />
-                                </StackPanel>
-                            </CheckBox>
+                            <StackPanel>
+                                <CheckBox x:Name="StartupCheck" Click="OnStartupClick" Margin="0">
+                                    <StackPanel>
+                                        <TextBlock Text="컴퓨터 켤 때 배치 맞추기" FontWeight="SemiBold" />
+                                        <TextBlock Style="{StaticResource Hint}" Text="컴퓨터를 켜면 창들이 늦게 떠도 기다렸다가 제자리에 놓아 줘요." />
+                                    </StackPanel>
+                                </CheckBox>
+                                <TextBlock x:Name="StartupPickLabel" Text="어떤 배치로 맞출까요?" Style="{StaticResource Hint}" Margin="46,10,0,4" />
+                                <Border x:Name="StartupPickBox" Background="{DynamicResource Bg.Stage}" CornerRadius="8" Padding="2" Margin="46,0,0,0" HorizontalAlignment="Left">
+                                    <ItemsControl x:Name="StartupPresetList">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <RadioButton GroupName="StartupPreset" Style="{StaticResource Segment}" Content="{Binding Name}"
+                                                             Tag="{Binding Id}" Click="OnStartupPresetClick" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <CheckBox x:Name="AdminCheck" Click="OnAdminClick" Margin="0">
+                                    <StackPanel>
+                                        <TextBlock Text="항상 관리자 권한으로 실행" FontWeight="SemiBold" />
+                                        <TextBlock Style="{StaticResource Hint}" Text="메이플처럼 관리자 권한으로 켜지는 게임 창도 고정하려면 켜세요. 컴퓨터를 켤 때도 관리자 권한으로 자동 실행돼요. 처음 켤 때 한 번만 확인 창이 떠요." />
+                                    </StackPanel>
+                                </CheckBox>
+                                <TextBlock x:Name="AdminState" Style="{StaticResource Hint}" Margin="46,8,0,0" />
+                            </StackPanel>
                         </Border>
                         <Border Style="{StaticResource Card}" Margin="0,0,0,12">
                             <StackPanel>
