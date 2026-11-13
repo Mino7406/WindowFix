@@ -122,6 +122,7 @@ public sealed class AppHost : IDisposable
                 if (s.CurrentPresetId == preset.Id) // the user may have applied another layout meanwhile: keep theirs
                 {
                     Applied?.Invoke(preset, report);
+                    if (s.BootNotify) NotifyBootResult(preset, report);
                     RefreshLock(); // re-bind with the final positions (apps often resize themselves while loading)
                 }
             }
@@ -308,6 +309,33 @@ public sealed class AppHost : IDisposable
             pid => Ws.GetWindows(includeHidden: true).Where(w => w.ProcessId == pid).ToList());
         tracker.BindInitial(report.Results);
         _lockService.Start(tracker);
+        _tracker = tracker;
+        EnsureRelaunchWatch();
+    }
+
+    // ---------- "고정 중에 꺼지면 다시 켜기" ----------
+
+    private LockTracker? _tracker;
+    private System.Windows.Threading.DispatcherTimer? _relaunchTimer;
+    private readonly RelaunchPolicy _relaunch = new(SystemClock.Instance);
+
+    /// <summary>Every 5s while locked: an entry marked "relaunch" whose app is gone gets started again (rate-limited).</summary>
+    private void EnsureRelaunchWatch()
+    {
+        if (_relaunchTimer is not null) return;
+        _relaunchTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _relaunchTimer.Tick += (_, _) =>
+        {
+            if (Lock.State != LockState.Active || _tracker is not { } t || IsEditing) return;
+            foreach (var e in t.Preset.Windows)
+            {
+                if (!e.RelaunchIfClosed || string.IsNullOrEmpty(e.LaunchPath) || t.IsBound(e.Id)) continue;
+                if (Ws.IsRunning(e.Match.ExeName) || !_relaunch.MayRelaunch(e.Id)) continue;
+                try { Ws.Launch(e.LaunchPath, e.LaunchArgs); } // the lock places the new window when it shows
+                catch (Exception ex) { App.LogError(ex); }
+            }
+        };
+        _relaunchTimer.Start();
     }
 
     public const string RestartedArg = "--restarted";
@@ -356,6 +384,14 @@ public sealed class AppHost : IDisposable
         if (!await Updater.InstallAsync(r)) return false;
         Shutdown();
         return true;
+    }
+
+    private void NotifyBootResult(Preset preset, ApplyReport report)
+    {
+        var missing = report.Results.Where(r => r.Outcome != ApplyOutcome.Applied)
+            .Select(r => preset.Windows.FirstOrDefault(w => w.Id == r.EntryId)?.DisplayName).Where(n => n is not null).ToList();
+        _tray?.ShowBalloon($"'{preset.Name}' 배치로 맞췄어요",
+            missing.Count == 0 ? $"{report.Results.Count}개 창을 제자리에 놓았어요." : $"아직 못 찾은 창: {string.Join(", ", missing)} (뜨면 바로 놓아 드려요)");
     }
 
     public void SkipUpdate(Core.Update.ReleaseInfo r)

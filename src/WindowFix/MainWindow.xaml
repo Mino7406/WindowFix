@@ -258,6 +258,11 @@
                                         <TextBlock Text="꺼져 있으면 자동으로 켜기 (숨어 있으면 꺼내기)" TextWrapping="Wrap" />
                                     </CheckBox>
                                     <CheckBox x:Name="MaxCheck" Content="최대화 상태로 두기" ToolTip="이 창을 모니터를 꽉 채운 상태로 고정해요." />
+                                    <CheckBox x:Name="TopCheck" Content="항상 위에 두기" ToolTip="다른 창에 가려지지 않게 이 창을 맨 위에 둬요." />
+                                    <CheckBox x:Name="NoMinCheck" Content="최소화 막기 (창 고정 중)" ToolTip="창 고정 중에 이 창이 최소화되면 바로 다시 띄워요." />
+                                    <CheckBox x:Name="RelaunchCheck" ToolTip="창 고정 중에 이 프로그램이 꺼지거나 튕기면 다시 켜서 제자리에 놓아요. (10분에 3번까지)">
+                                        <TextBlock Text="창 고정 중에 꺼지면 다시 켜기" TextWrapping="Wrap" />
+                                    </CheckBox>
 
                                     <Expander Header="위치와 크기 직접 고치기" Margin="0,12,0,0" Foreground="{DynamicResource Fg.Secondary}">
                                         <StackPanel Margin="0,8,0,0">
@@ -332,6 +337,9 @@
                                         <TextBlock Text="시작 프로그램으로 설정" FontWeight="SemiBold" />
                                         <TextBlock Style="{StaticResource Hint}" Text="컴퓨터를 켜면 창들이 늦게 떠도 기다렸다가 제자리에 놓아 줘요." />
                                     </StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="BootNotifyCheck" Click="OnBootNotifyClick" Margin="46,10,0,0">
+                                    <TextBlock Text="켤 때 결과 알림 (몇 개 창을 맞췄는지, 못 찾은 창이 있는지)" TextWrapping="Wrap" />
                                 </CheckBox>
                                 <TextBlock x:Name="StartupPickLabel" Text="어떤 배치로 맞출까요?" Style="{StaticResource Hint}" Margin="46,10,0,4" />
                                 <Border x:Name="StartupPickBox" Background="{DynamicResource Bg.Stage}" CornerRadius="8" Padding="2" Margin="46,0,0,0" HorizontalAlignment="Left">

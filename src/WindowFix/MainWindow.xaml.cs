@@ -124,6 +124,8 @@ public partial class MainWindow : Window
         ThemeLight.IsChecked = s.Theme == Core.Model.ThemeMode.Light;
         ThemeDark.IsChecked = s.Theme == Core.Model.ThemeMode.Dark;
         AdminCheck.IsChecked = s.AlwaysAdmin;
+        BootNotifyCheck.IsChecked = s.BootNotify;
+        BootNotifyCheck.Visibility = StartupCheck.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         UpdateCheck.IsChecked = s.AutoUpdateCheck;
         if (string.IsNullOrEmpty(VersionText.Text)) VersionText.Text = $"현재 버전 {Updater.CurrentText}";
         AdminState.Inlines.Clear();
@@ -441,6 +443,12 @@ public partial class MainWindow : Window
         StatusText.Text = "이 버전은 건너뛸게요. 다음 새 버전이 나오면 다시 알려 드릴게요.";
     }
 
+    private void OnBootNotifyClick(object sender, RoutedEventArgs e)
+    {
+        _host.Config.Settings.BootNotify = BootNotifyCheck.IsChecked == true;
+        _host.SaveConfig();
+    }
+
     private void OnUpdateCheckClick(object sender, RoutedEventArgs e)
     {
         _host.Config.Settings.AutoUpdateCheck = UpdateCheck.IsChecked == true;
@@ -549,6 +557,9 @@ public partial class MainWindow : Window
         MaxCheck.IsChecked = entry.Maximized;
         TitleBox.Text = entry.Match.TitleContains ?? "";
         LaunchCheck.IsChecked = entry.LaunchIfMissing;
+        TopCheck.IsChecked = entry.AlwaysOnTop;
+        NoMinCheck.IsChecked = entry.NoMinimize;
+        RelaunchCheck.IsChecked = entry.RelaunchIfClosed;
         PathBox.Text = entry.LaunchPath ?? "";
         ArgsBox.Text = entry.LaunchArgs ?? "";
         MatchInfo.Text = $"프로그램: {entry.Match.ExeName}" + (entry.Match.ClassName is { } c ? $" · 창 종류: {c}" : "");
@@ -602,6 +613,12 @@ public partial class MainWindow : Window
         entry.Maximized = MaxCheck.IsChecked == true;
         entry.Match.TitleContains = string.IsNullOrWhiteSpace(TitleBox.Text) ? null : TitleBox.Text.Trim();
         entry.LaunchIfMissing = LaunchCheck.IsChecked == true;
+        bool wasTop = entry.AlwaysOnTop;
+        entry.AlwaysOnTop = TopCheck.IsChecked == true;
+        entry.NoMinimize = NoMinCheck.IsChecked == true;
+        entry.RelaunchIfClosed = RelaunchCheck.IsChecked == true;
+        if (wasTop && !entry.AlwaysOnTop && WindowMatcher.PickBest(entry.Match, _host.Ws.GetWindows(includeHidden: false), new HashSet<nint>()) is { } live)
+            _host.Ws.SetTopMost(live.Handle, false); // turning it off takes effect right away
         entry.LaunchPath = string.IsNullOrWhiteSpace(PathBox.Text) ? null : PathBox.Text.Trim();
         entry.LaunchArgs = string.IsNullOrWhiteSpace(ArgsBox.Text) ? null : ArgsBox.Text.Trim();
         _host.SaveConfig();

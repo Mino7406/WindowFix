@@ -34,7 +34,14 @@ public sealed class TrayIcon : IDisposable
     /// <summary>Notification bubble; clicking it opens the main window. Only shown while the tray icon is visible.</summary>
     public void ShowBalloon(string title, string text)
     {
-        if (!_icon.Visible) return;
+        bool wasHidden = !_icon.Visible;
+        if (wasHidden)
+        {
+            _icon.Visible = true; // a bubble needs an icon; put it back afterwards
+            var hide = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(8) };
+            hide.Tick += (_, _) => { hide.Stop(); _icon.Visible = _host.Config.Settings.ShowTrayIcon; };
+            hide.Start();
+        }
         _icon.BalloonTipClicked -= OnBalloonClicked;
         _icon.BalloonTipClicked += OnBalloonClicked;
         _icon.ShowBalloonTip(6000, title, text, Forms.ToolTipIcon.Info);
