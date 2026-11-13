@@ -56,7 +56,13 @@
             </DockPanel>
 
             <Border Grid.Column="1" Background="{DynamicResource Bg.Stage}" CornerRadius="10">
-                <c:MonitorPreview x:Name="Preview" Margin="8" />
+                <DockPanel>
+                    <StackPanel x:Name="ThumbPanel" DockPanel.Dock="Bottom" Margin="14,0,14,12" Visibility="Collapsed">
+                        <TextBlock Text="다른 모니터 — 누르면 크게 봐요" Style="{StaticResource Hint}" Margin="0,0,0,4" />
+                        <WrapPanel x:Name="ThumbList" />
+                    </StackPanel>
+                    <c:MonitorPreview x:Name="Preview" Margin="8" />
+                </DockPanel>
             </Border>
         </Grid>
     </DockPanel>
