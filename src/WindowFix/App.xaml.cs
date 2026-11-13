@@ -59,6 +59,16 @@ public partial class App : Application
     private static bool _showingError;
     private static DateTime _lastErrorShown = DateTime.MinValue;
 
+    /// <summary>✕ inside a "Clearable" TextBox: empty it and keep typing there.</summary>
+    private void OnClearTextBox(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.TemplatedParent is System.Windows.Controls.TextBox box)
+        {
+            box.Clear();
+            box.Focus();
+        }
+    }
+
     public static void LogError(Exception ex)
     {
         try

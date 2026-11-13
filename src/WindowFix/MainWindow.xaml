@@ -254,7 +254,7 @@
                                         <TextBlock x:Name="EditTitle" Text="창 설정" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
                                     </DockPanel>
                                     <TextBlock Text="이름" Style="{StaticResource Label}" />
-                                    <TextBox x:Name="NameBox" Margin="0,4,0,12" />
+                                    <TextBox x:Name="NameBox" Style="{StaticResource Clearable}" Margin="0,4,0,12" />
                                     <CheckBox x:Name="LaunchCheck" ToolTip="배치를 맞출 때 이 프로그램이 꺼져 있으면 켜 주고, 트레이에 숨어 있으면 꺼내서 제자리에 놓아요.">
                                         <TextBlock Text="꺼져 있으면 자동으로 켜기 (숨어 있으면 꺼내기)" TextWrapping="Wrap" />
                                     </CheckBox>
@@ -285,17 +285,17 @@
                                             <DockPanel Margin="0,4,0,12">
                                                 <Button DockPanel.Dock="Right" Content="지금 창 제목 가져오기" Click="OnPickTitle" Margin="6,0,0,0" Padding="8,4"
                                                         ToolTip="지금 떠 있는 이 프로그램의 창 제목을 채워 넣어요. 필요 없는 부분은 지우세요." />
-                                                <TextBox x:Name="TitleBox" />
+                                                <TextBox x:Name="TitleBox" Style="{StaticResource Clearable}" />
                                             </DockPanel>
 
                                             <TextBlock Text="자동으로 켤 때 실행할 파일" Style="{StaticResource Label}" FontWeight="SemiBold" />
                                             <TextBlock Style="{StaticResource Hint}" Text="'꺼져 있으면 자동으로 켜기'를 쓸 때만 필요해요. 보통은 저장할 때 알아서 채워져요." />
                                             <DockPanel Margin="0,4,0,8">
                                                 <Button DockPanel.Dock="Right" Content="찾아보기…" Click="OnBrowseExe" Margin="6,0,0,0" Padding="8,4" />
-                                                <TextBox x:Name="PathBox" />
+                                                <TextBox x:Name="PathBox" Style="{StaticResource Clearable}" />
                                             </DockPanel>
                                             <TextBlock Text="실행 옵션 (선택)" Style="{StaticResource Hint}" />
-                                            <TextBox x:Name="ArgsBox" Margin="0,4,0,10" ToolTip="예: 디스코드는 --processStart Discord.exe" />
+                                            <TextBox x:Name="ArgsBox" Style="{StaticResource Clearable}" Margin="0,4,0,10" ToolTip="예: 디스코드는 --processStart Discord.exe" />
                                             <TextBlock x:Name="MatchInfo" Style="{StaticResource Hint}" />
                                         </StackPanel>
                                     </Expander>
