@@ -152,6 +152,24 @@ public sealed class LockTrackerTests
     }
 
     [Fact]
+    public void Tracker_UserDrags_AlwaysRevert_EvenPastTheLimit()
+    {
+        var moved = Discord(new PixelRect(0, 0, 10, 10));
+
+        for (int i = 0; i < 20; i++)
+            Assert.Equal(LockAction.Revert, _t.OnLocationChanged(moved, userInitiated: true).Action);
+    }
+
+    [Fact]
+    public void Tracker_UserDrags_DoNotUseUpTheAppLimit()
+    {
+        var moved = Discord(new PixelRect(0, 0, 10, 10));
+        for (int i = 0; i < 10; i++) _t.OnLocationChanged(moved, userInitiated: true);
+
+        Assert.Equal(LockAction.Revert, _t.OnLocationChanged(moved).Action);
+    }
+
+    [Fact]
     public void Tracker_GivesUp_ReportsRetryAfterCooldown()
     {
         var moved = Discord(new PixelRect(0, 0, 10, 10));

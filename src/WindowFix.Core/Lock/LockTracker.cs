@@ -47,7 +47,9 @@ public sealed class LockTracker(Preset preset, Func<IReadOnlyList<MonitorInfo>> 
         return new LockDecision(LockAction.PlaceNew, target.Value, entry.Maximized);
     }
 
-    public LockDecision OnLocationChanged(WindowInfo w)
+    /// <param name="userInitiated">The user dragged the frame (move/size loop ended). Always snap back and don't spend the
+    /// app-fight budget — the budget exists only for apps that keep moving themselves.</param>
+    public LockDecision OnLocationChanged(WindowInfo w, bool userInitiated = false)
     {
         if (!_bound.TryGetValue(w.Handle, out var id)) return LockDecision.None;
         if (w.IsMinimized) return LockDecision.None;
@@ -61,6 +63,7 @@ public sealed class LockTracker(Preset preset, Func<IReadOnlyList<MonitorInfo>> 
         bool inPlace = entry.Maximized ? w.IsMaximized : !w.IsMaximized && w.Rect == target.Value;
         if (inPlace) return LockDecision.None;
 
+        if (userInitiated) return new LockDecision(LockAction.Revert, target.Value, entry.Maximized);
         return policy.ShouldRevert(w.Handle)
             ? new LockDecision(LockAction.Revert, target.Value, entry.Maximized)
             : LockDecision.None with { RetryAfter = policy.CooldownRemaining(w.Handle) };

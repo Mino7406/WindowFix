@@ -58,7 +58,7 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
                 if (bound) _dragging.Add(hwnd);
                 break;
             case EVENT_SYSTEM_MOVESIZEEND:
-                if (_dragging.Remove(hwnd)) Evaluate(hwnd, shown: false);
+                if (_dragging.Remove(hwnd)) Evaluate(hwnd, shown: false, userInitiated: true);
                 break;
             case EVENT_OBJECT_LOCATIONCHANGE:
             case EVENT_SYSTEM_MINIMIZEEND:
@@ -93,7 +93,7 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
         Evaluate(hwnd, p.Shown);
     }
 
-    private void Evaluate(nint hwnd, bool shown)
+    private void Evaluate(nint hwnd, bool shown, bool userInitiated = false)
     {
         var tracker = _tracker;
         if (tracker is null) return;
@@ -105,7 +105,7 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
             return;
         }
 
-        var d = shown ? tracker.OnShown(info) : tracker.OnLocationChanged(info);
+        var d = shown ? tracker.OnShown(info) : tracker.OnLocationChanged(info, userInitiated);
         if (d.Action is LockAction.Revert or LockAction.PlaceNew)
             ws.SetPlacement(hwnd, d.Target, d.Maximize);
         else if (d.RetryAfter is { } wait)
