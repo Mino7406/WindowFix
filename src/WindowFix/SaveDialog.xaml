@@ -3,8 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="clr-namespace:WindowFix.Controls"
         Title="새 배치 만들기" FontSize="13" Width="980" Height="560" MinWidth="720" MinHeight="420"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource Bg.Window}" Foreground="{DynamicResource Fg.Primary}" FontFamily="{StaticResource UiFont}"
-        Icon="pack://application:,,,/Assets/WindowFix.ico">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource Bg.Window}" Foreground="{DynamicResource Fg.Primary}" FontFamily="{StaticResource UiFont}">
     <DockPanel Margin="12">
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
             <DockPanel>

@@ -4,8 +4,7 @@
         xmlns:c="clr-namespace:WindowFix.Controls"
         Title="WindowFix" Width="1060" Height="660" MinWidth="820" MinHeight="500"
         WindowStartupLocation="CenterScreen" FontSize="13" FontFamily="{StaticResource UiFont}"
-        Background="{DynamicResource Bg.Window}" Foreground="{DynamicResource Fg.Primary}"
-        Icon="pack://application:,,,/Assets/WindowFix.ico">
+        Background="{DynamicResource Bg.Window}" Foreground="{DynamicResource Fg.Primary}">
     <Window.Resources>
         <!-- Kept as a resource: event handlers inside a Style setter's ContextMenu crash XAML loading. -->
         <ContextMenu x:Key="LayoutMenu" x:Shared="False">
