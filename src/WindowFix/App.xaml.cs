@@ -29,11 +29,29 @@ public partial class App : Application
     /// <summary>Keep running (the lock may be guarding windows) and tell the user in plain words.</summary>
     private void OnUnhandled(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        LogError(e.Exception);
         e.Handled = true;
-        Dialogs.AppDialog.Info(null, "예상하지 못한 문제가 생겼어요",
-            @"WindowFix는 계속 동작해요. 같은 문제가 반복되면 %APPDATA%\WindowFix\error.log 파일을 보내 주세요.");
+        // A broken animation or render handler fails on every frame: log and show it once, never a flood of dialogs.
+        if (_showingError || DateTime.UtcNow - _lastErrorShown < TimeSpan.FromSeconds(30)) return;
+        LogError(e.Exception);
+        _showingError = true;
+        try
+        {
+            Dialogs.AppDialog.Info(null, "예상하지 못한 문제가 생겼어요",
+                @"WindowFix는 계속 동작해요. 같은 문제가 반복되면 %APPDATA%\WindowFix\error.log 파일을 보내 주세요.");
+        }
+        catch (Exception ex)
+        {
+            LogError(ex);
+        }
+        finally
+        {
+            _showingError = false;
+            _lastErrorShown = DateTime.UtcNow;
+        }
     }
+
+    private static bool _showingError;
+    private static DateTime _lastErrorShown = DateTime.MinValue;
 
     public static void LogError(Exception ex)
     {

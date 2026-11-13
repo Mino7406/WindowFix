@@ -51,6 +51,7 @@ public sealed class TrayIcon : IDisposable
         if (menu.IsHandleCreated) ThemedMenuRenderer.RoundCorners(menu); else menu.HandleCreated += (_, _) => ThemedMenuRenderer.RoundCorners(menu);
         var open = new Forms.ToolStripMenuItem("WindowFix 열기", null, (_, _) => _host.ShowMainWindow()) { Font = new System.Drawing.Font(menu.Font, System.Drawing.FontStyle.Bold) };
         menu.Items.Add(open);
+        menu.Items.Add(new Forms.ToolStripMenuItem("WindowFix 설정", null, (_, _) => _host.ShowSettings()));
         menu.Items.Add(new Forms.ToolStripSeparator());
 
         var apply = new Forms.ToolStripMenuItem("이 배치로 맞추기");

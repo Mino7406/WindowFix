@@ -1,7 +1,7 @@
 # WindowFix 인수인계 (다른 PC·세션용)
 
-- 갱신: 2026-11-13 (Claude)
-- 저장소: https://github.com/Mino7406/WindowFix — 브랜치 `main` (마지막 커밋 `725681a`)
+- 갱신: 2026-11-13 오후 (사무실 PC 세션, Claude)
+- 저장소: https://github.com/Mino7406/WindowFix — 브랜치 `main`
 - 이 문서는 사무실 PC 등 **이 대화를 모르는 다른 세션**이 바로 이어서 작업할 수 있게 쓴 것이다.
 
 ## 1. 무엇을 만드는 중인가
@@ -18,6 +18,7 @@ git clone https://github.com/Mino7406/WindowFix.git
 - 테스트: `dotnet test` (현재 136개 전부 통과. 통합 테스트는 실제 창을 잠깐 띄움)
 - 실행(개발): `dotnet run --project src/WindowFix`
 - 배포 exe: `dotnet publish src/WindowFix -c Release -r win-x64 -o publish` → `publish/WindowFix.exe` 하나(자체 포함, 약 75MB)
+  - 화면 문구 목록: `docs/ui-text.md` (문구 189개, 파일:줄 링크. 문구를 바꾼 뒤에는 다시 뽑아 줄 것)
   - **WindowFix가 실행 중이면 exe가 잠겨서 publish 실패.** 고정이 켜져 있으면 창을 닫아도 백그라운드에 남는다(정상 동작). 사용자 허락을 받고 프로세스를 종료한 뒤 publish, 끝나면 다시 실행해 줄 것.
 
 ## 3. 구조
@@ -33,7 +34,7 @@ git clone https://github.com/Mino7406/WindowFix.git
   - `MainWindow` 사이드바(배치 목록·우클릭 메뉴·설정) + 배치 화면(창 고정 카드, 미리보기, 이 배치의 창, 창 설정 패널) + 설정 탭
   - `SaveDialog` 새 배치 만들기 / 배치 수정(누른 모니터 크게, 나머지는 썸네일)
   - `Controls/MonitorPreview.cs` 모니터 미리보기(리테인드 모드, hover 들어올림 애니메이션)
-  - `FloatingLockButton` 가장자리 고정 탭(A안: 6px 막대 → hover 시 펼침, 일시정지면 주황으로 펼친 채)
+  - `FloatingLockButton` 가장자리 고정 탭(8px 막대 + 흰 테두리 → hover 시 펼침, 일시정지면 주황으로 펼친 채, 처음 뜰 때 2.5초 펼쳐 위치 알림). 끌어 놓으면 vsync 맞춘 별도 스레드(DwmFlush)로 0.36초 미끄러진 뒤 0.17초 접힘(겹치지 않게 순서대로), 위치 저장은 접힘 뒤
   - `Dialogs/AppDialog` Windows 기본 MessageBox/InputBox 대체
   - `Themes/Dark.xaml`, `Light.xaml` + `ThemeManager.cs`(시스템/라이트/다크, 시스템 따라가기)
   - `Tray/` 트레이 아이콘 + 테마 메뉴 렌더러
@@ -51,10 +52,12 @@ git clone https://github.com/Mino7406/WindowFix.git
 ## 5. 현재 상태
 - 동작 확인됨(실제 앱): 메인 화면, 설정 탭, 배치 수정 창(모니터 클릭), 모니터 hover, 저장 대화상자, 고정/되돌림(별도 테스트 창으로), 작업 스케줄러 등록 명령.
 - **아직 사람이 직접 확인 안 된 것**: 우클릭 메뉴·트레이 메뉴의 새 모양, 삭제 확인 창, "항상 관리자 권한" 켜기(UAC 흐름), 메이플 등 관리자 권한 게임 고정, 새 고정 탭 펼침 동작, 다크 테마 전체, 재부팅 복원, 친구 PC(.NET 없는 PC) 실행. → `docs/manual-test-checklist.md`
+- 2026-11-13 사무실 PC에서 고친 것(사용자 확인함): 가장자리 탭 끌 때 에러창 무한반복(NaN 크기 애니메이션), 탭이 바탕에 묻힘, 놓을 때 애니메이션(스르륵 → 접힘, 멈칫·튐 없음), 모니터 hover 가려짐, 새 배치/배치 수정 창 [↻ 새로고침]+돌아오면 자동 다시 읽기, 이름 바꾸기·삭제·맞추기 버튼 묶음(고정 중인 배치면 맞추기 숨김, 고정 중 다른 배치면 "이 배치로 바꾸기"), 설정 → "↩ 돌아가기", 상태 문구 상자, 미리보기 창 우클릭 기능 제거, 트레이 "끝내기" 색, 트레이 "WindowFix 설정", 사이드바 로고 벡터화(흐림).
+- 성능 점검(사용자 요구: 보조 도구라 성능 저하 금지): 가만히 있을 때 CPU 0%, 창 끌 때만 잠깐 1~4%(4코어 전체 기준), 메모리 55~75MB. 고친 것: LOCATIONCHANGE 훅을 고정 중인 창의 프로세스에만(마우스 커서 이벤트까지 받던 것), 설정 저장마다 schtasks.exe 2번 동기 실행하던 것 → 관련 값이 바뀔 때만 백그라운드로, 탭 그림자 효과 제거.
 - 사용자 PC 특이사항: 모든 프로그램이 관리자 권한으로 도는 환경으로 보임(UAC 꺼짐 추정). 관리자 관련 판단은 "WindowFix보다 권한이 높은 창"일 때만 걸리게 해 둠.
 
 ## 6. 남은 일 / 후보
-1. 사용자 피드백 대기 중(애니메이션 끊김이 해결됐는지, 새 고정 탭 마음에 드는지).
+1. 마지막에 넣은 트레이 "WindowFix 설정" 메뉴와 벡터 로고는 실제 앱에서 사용자 확인 전.
 2. 미뤄 둔 작은 문제(최종 리뷰에서 나온 것):
    - 응답 없는 창도 "맞췄어요"로 표시될 수 있음(비동기 SetWindowPos)
    - 최대화로 저장한 창을 다른 모니터로 보내면(Win+Shift+→) 되돌리지 않음
@@ -70,3 +73,6 @@ git clone https://github.com/Mino7406/WindowFix.git
 - 미리보기를 매 프레임 `InvalidateVisual`로 다시 그리면 끊김 → 자식 비주얼 + 변환 애니메이션으로.
 - PowerShell에서 Win32 함수에 `$null` 문자열을 넘기면 빈 문자열로 바뀜.
 - Git Bash heredoc 안에 따옴표가 많은 Python을 넣으면 깨지기 쉬움 → 스크립트를 파일로 저장해서 실행.
+- **Claude 데스크톱 앱 안에서 WindowFix를 Start-Process로 켜면 %APPDATA%가 `...\Packages\Claude_...\LocalCache\Roaming`으로 바꿔치기돼서 빈 설정으로 뜸**(사용자가 설정이 날아간 줄 앎). `explorer.exe "<전체경로>\WindowFix.exe"`로 켤 것. Claude 쪽 도구로 config.json을 읽어도 그 가짜 사본이 보일 수 있음.
+- "항상 관리자"가 켜진 PC에서는 WindowFix가 관리자 권한이라 Claude가 Stop-Process로 못 끔 → 사용자에게 트레이에서 종료를 부탁하고, 그동안은 `dotnet build -o <임시폴더>`로 컴파일만 확인.
+- `Width`/`Height`가 Auto(NaN)인 요소에 From 없는 DoubleAnimation을 걸면 매 프레임 예외 → 시작값을 꼭 줄 것. 투명 창(AllowsTransparency)에 Effect를 걸면 CPU로 그려져 애니메이션이 끊김.

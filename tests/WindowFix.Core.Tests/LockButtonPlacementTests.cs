@@ -105,16 +105,18 @@ public sealed class LockButtonPlacementTests
     }
 
     [Fact]
-    public void Interpolate_EasesOut()
+    public void Interpolate_GlidesInWithoutOvershoot()
     {
         var start = new TabRect(0, 0, 28, 70, ScreenEdge.Left);
         var end = new TabRect(800, 0, 70, 28, ScreenEdge.Top);
 
         var mid = LockButtonPlacement.Interpolate(start, end, 0.5);
 
-        Assert.Equal(700, mid.X);      // ease-out cubic: 1 - 0.5^3 = 0.875 of the way
-        Assert.Equal(65, mid.Width);   // size morphs too (vertical tab → horizontal tab)
-        Assert.Equal(33, mid.Height);
+        Assert.Equal(540, mid.X);      // 0.3·0.5 + 0.7·0.75 = 0.675 of the way
+        Assert.Equal(56, mid.Width);   // size morphs too (vertical tab → horizontal tab)
+        Assert.Equal(42, mid.Height);
+        for (double t = 0; t <= 1; t += 0.05) // never past the edge (no bounce)
+            Assert.InRange(LockButtonPlacement.Interpolate(start, end, t).X, 0, 800);
         Assert.Equal(ScreenEdge.Top, mid.Edge);
     }
 

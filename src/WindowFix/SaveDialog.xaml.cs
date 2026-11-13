@@ -28,6 +28,7 @@ public partial class SaveDialog : Window
     private string? _monitorPath; // edit mode: the monitor shown large
     private IReadOnlyList<MonitorInfo> _monitors = [];
     private List<Candidate> _items = [];
+    private bool _loaded;
 
     private SaveDialog(IWindowSystem ws, string defaultName, Preset? editing, string? monitorPath = null)
     {
@@ -37,7 +38,9 @@ public partial class SaveDialog : Window
         InitializeComponent();
         SourceInitialized += (_, _) => ThemeManager.ApplyTitleBar(this);
         if (editing is not null) SaveButton.Content = "변경 저장";
-        else RescanButton.Visibility = Visibility.Collapsed;
+        // Coming back from moving/opening a window elsewhere: read the screen again so the list is never stale.
+        Activated += (_, _) => { if (_loaded) Rescan(); };
+        ContentRendered += (_, _) => _loaded = true;
         Preview.RectClicked += id =>
         {
             var c = _items.FirstOrDefault(i => i.Id == id);
@@ -65,7 +68,7 @@ public partial class SaveDialog : Window
 
     private bool Editing => _editing is not null;
 
-    private void LoadWindows(ISet<nint>? keepChecks)
+    private void LoadWindows(ISet<nint>? keepChecks, ISet<nint>? seen = null)
     {
         _monitors = _ws.GetMonitors();
         if (Editing && _monitors.All(m => m.DevicePath != _monitorPath)) _monitorPath = _monitors.FirstOrDefault()?.DevicePath;
@@ -73,14 +76,16 @@ public partial class SaveDialog : Window
             .Where(w => WindowMatcher.IsCandidate(w) && w.ProcessId != Environment.ProcessId && !w.IsMinimized)
             .ToList();
 
-        ISet<nint> preselected;
-        if (keepChecks is not null) preselected = keepChecks;
-        else if (Editing) preselected = ResolveEntries(windows).Keys.ToHashSet();
-        else
-        {
+        ISet<nint> preselected = Editing
+            ? ResolveEntries(windows).Keys.ToHashSet()
             // admin apps stay unchecked only when WindowFix itself can't move them
-            preselected = PresetCapture.DefaultSelection(windows, _monitors)
+            : PresetCapture.DefaultSelection(windows, _monitors)
                 .Where(w => !(w.IsElevated && !_ws.SelfElevated)).Select(w => w.Handle).ToHashSet();
+        if (keepChecks is not null)
+        {
+            // windows already listed keep the user's choice; windows that just appeared get the default
+            var fresh = preselected.Where(h => seen is null || !seen.Contains(h));
+            preselected = keepChecks.Concat(fresh).ToHashSet();
         }
 
         var ordered = Ordered(_monitors);
@@ -129,7 +134,7 @@ public partial class SaveDialog : Window
             Title = $"'{_editing!.Name}' 배치 수정 · {label}";
             HeaderText.Text = $"{label}에 둘 창을 고르세요";
             SubText.Text = "체크한 창들의 지금 위치와 크기로 배치가 바뀌어요. 수정하는 동안은 창 고정이 잠깐 풀려 있으니, " +
-                           "창을 옮긴 뒤 [↻ 지금 위치 다시 읽기]를 누르세요. 아래 작은 모니터를 누르면 그 모니터로 바뀌어요.";
+                           "창을 옮기고 이 창으로 돌아오면 알아서 다시 읽어요([↻ 새로고침]으로도 돼요). 아래 작은 모니터를 누르면 그 모니터로 바뀌어요.";
             WindowList.ItemsSource = _items.Where(i => i.MonitorPath == _monitorPath).ToList();
             Preview.Monitors = _monitors.Where(m => m.DevicePath == _monitorPath).ToList();
             BuildThumbnails();
@@ -169,8 +174,12 @@ public partial class SaveDialog : Window
         }
     }
 
-    private void OnRescan(object sender, RoutedEventArgs e) =>
-        LoadWindows(_items.Where(i => i.IsChecked).Select(i => i.Window.Handle).ToHashSet());
+    private void OnRescan(object sender, RoutedEventArgs e) => Rescan();
+
+    /// <summary>Re-read windows and positions; keeps the user's checks, new windows get the usual default.</summary>
+    private void Rescan() =>
+        LoadWindows(_items.Where(i => i.IsChecked).Select(i => i.Window.Handle).ToHashSet(),
+                    _items.Select(i => i.Window.Handle).ToHashSet());
 
     private void Refresh()
     {

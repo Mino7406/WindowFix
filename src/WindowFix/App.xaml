@@ -9,6 +9,21 @@
                 <ResourceDictionary Source="Themes/Dark.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
+            <!-- App logo as vector shapes (same as Assets/WindowFix.ico): stays sharp at any size and DPI,
+                 where the .ico's 16 px frame got stretched and blurry. 256-unit canvas. -->
+            <DrawingImage x:Key="LogoImage">
+                <DrawingImage.Drawing>
+                    <DrawingGroup>
+                        <GeometryDrawing Brush="#3B5BDB" Geometry="M58,0 H198 A58,58 0 0 1 256,58 V198 A58,58 0 0 1 198,256 H58 A58,58 0 0 1 0,198 V58 A58,58 0 0 1 58,0 Z" />
+                        <GeometryDrawing Brush="#FFFFFF">
+                            <GeometryDrawing.Geometry><RectangleGeometry Rect="47,62,100,133" RadiusX="12" RadiusY="12" /></GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                        <GeometryDrawing Brush="#FFD60A">
+                            <GeometryDrawing.Geometry><RectangleGeometry Rect="163,62,47,133" RadiusX="12" RadiusY="12" /></GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                    </DrawingGroup>
+                </DrawingImage.Drawing>
+            </DrawingImage>
             <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI, Malgun Gothic</FontFamily>
 
             <!-- Flat "ghost" button (default): hover fades in, press shrinks a little -->

@@ -20,8 +20,7 @@
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <EventSetter Event="PreviewMouseLeftButtonUp" Handler="OnLayoutItemClick" />
             <Setter Property="ContextMenu" Value="{StaticResource LayoutMenu}" />
-            <Setter Property="ToolTip" Value="우클릭하면 이름 바꾸기·삭제를 할 수 있어요." />
-            <Setter Property="Template">
+                        <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
                         <Border x:Name="Bd" Background="Transparent" CornerRadius="8" Padding="10,8" Margin="0,1">
@@ -40,6 +39,12 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style x:Key="ToolButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="11,5" />
+            <Setter Property="Foreground" Value="{DynamicResource Fg.Secondary}" />
         </Style>
         <Style x:Key="StepNumber" TargetType="Border">
             <Setter Property="Width" Value="32" />
@@ -68,11 +73,12 @@
         <Border Background="{DynamicResource Bg.Sidebar}" BorderBrush="{DynamicResource Border.Subtle}" BorderThickness="0,0,1,0">
             <DockPanel Margin="12,14">
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="6,0,0,18">
-                    <Image Source="pack://application:,,,/Assets/WindowFix.ico" Width="22" Height="22" Margin="0,0,8,0" />
+                    <Image Source="{StaticResource LogoImage}" Width="22" Height="22" Margin="0,0,8,0" />
                     <TextBlock Text="WindowFix" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
                 </StackPanel>
-                <RadioButton x:Name="SettingsNav" DockPanel.Dock="Bottom" GroupName="Nav" Style="{StaticResource NavItem}" Checked="OnSettingsNav">
-                    <TextBlock Text="⚙  설정" />
+                <RadioButton x:Name="SettingsNav" DockPanel.Dock="Bottom" GroupName="Nav" Style="{StaticResource NavItem}" Checked="OnSettingsNav" Click="OnSettingsNavClick"
+                     ToolTip="테마, 시작 설정 등을 바꿔요.">
+                    <TextBlock x:Name="SettingsNavText" Text="⚙  설정" />
                 </RadioButton>
                 <Button DockPanel.Dock="Top" Content="+ 새 배치 생성" Click="OnSaveCurrent" Style="{StaticResource Primary}"
                         Margin="0,0,0,14" HorizontalAlignment="Stretch"
@@ -92,22 +98,49 @@
 
         <!-- ===== Content ===== -->
         <DockPanel Grid.Column="1">
-            <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Margin="22,0,22,12" TextWrapping="Wrap" MaxHeight="80"
-                       Foreground="{DynamicResource Fg.Secondary}" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            <!-- What just happened / what to do next: a callout so it isn't missed -->
+            <Border x:Name="StatusBox" DockPanel.Dock="Bottom" Margin="22,0,22,12" CornerRadius="8" BorderThickness="1"
+                    Padding="10,8" Visibility="Collapsed" RenderTransformOrigin="0.5,1"
+                    Background="{DynamicResource Bg.Selected}" BorderBrush="{DynamicResource Accent}">
+                <Border.RenderTransform><TranslateTransform x:Name="StatusShift" /></Border.RenderTransform>
+                <DockPanel>
+                    <!-- accent bar inside the box: an uneven border looked lopsided at the rounded corners -->
+                    <Border x:Name="StatusBar" DockPanel.Dock="Left" Width="4" CornerRadius="2" Margin="0,1,10,1"
+                            Background="{DynamicResource Accent}" />
+                    <TextBlock x:Name="StatusText" TextWrapping="Wrap" MaxHeight="80" FontWeight="SemiBold" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Fg.Primary}" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                </DockPanel>
+            </Border>
 
             <Grid>
                 <!-- Layout page -->
                 <DockPanel x:Name="LayoutPage" Margin="22,18,22,10">
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
-                        <Button x:Name="ApplyButton" DockPanel.Dock="Right" Content="이 배치로 맞추기" Click="OnApply" Margin="0"
-                                ToolTip="고른 배치대로 창들을 지금 바로 옮겨요." />
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock x:Name="PresetTitle" Text="배치 없음" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            <Border x:Name="StatusChip" CornerRadius="10" Padding="9,3" Margin="12,2,0,0" VerticalAlignment="Center">
-                                <TextBlock x:Name="StatusChipText" FontSize="11.5" FontWeight="SemiBold" />
-                            </Border>
-                        </StackPanel>
-                    </DockPanel>
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,14" Orientation="Horizontal">
+                        <TextBlock x:Name="PresetTitle" Text="배치 없음" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   MaxWidth="320" TextTrimming="CharacterEllipsis" />
+                        <Border x:Name="StatusChip" CornerRadius="10" Padding="9,3" Margin="12,2,0,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="StatusChipText" FontSize="11.5" FontWeight="SemiBold" />
+                        </Border>
+                        <!-- Layout actions, one tidy group next to the title -->
+                        <Border x:Name="LayoutActions" Margin="14,2,0,0" VerticalAlignment="Center" Padding="3" CornerRadius="10"
+                                Background="{DynamicResource Bg.Card}" BorderBrush="{DynamicResource Border.Subtle}" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="ApplyButton" Click="OnApply" Style="{StaticResource Primary}" Padding="12,5" Margin="0"
+                                        ToolTip="고른 배치대로 창들을 지금 바로 옮겨요.">
+                                    <TextBlock x:Name="ApplyText" Text="↺  이 배치로 맞추기" />
+                                </Button>
+                                <Button x:Name="RenameButton" Click="OnRename" Style="{StaticResource ToolButton}" Margin="3,0,0,0"
+                                        ToolTip="이 배치의 이름을 바꿔요.">
+                                    <TextBlock Text="✎  이름 바꾸기" />
+                                </Button>
+                                <Border Width="1" Margin="2,6" Background="{DynamicResource Border.Subtle}" />
+                                <Button x:Name="DeleteButton" Click="OnDelete" Style="{StaticResource ToolButton}" Margin="0"
+                                        Foreground="{DynamicResource Danger.Fg}" ToolTip="이 배치를 지워요. 창이나 프로그램은 그대로 있어요.">
+                                    <TextBlock Text="🗑  삭제" />
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </WrapPanel>
 
                     <Border x:Name="AdminBanner" DockPanel.Dock="Top" CornerRadius="10" BorderThickness="1" Padding="14,10" Margin="0,0,0,12"
                             Background="{DynamicResource Lock.Paused.Bg}" BorderBrush="{DynamicResource Lock.Paused.Border}" Visibility="Collapsed">
@@ -162,7 +195,7 @@
                                 <c:MonitorPreview x:Name="Preview" Margin="10,10,10,30" />
                                 <TextBlock x:Name="PreviewHint" Foreground="{DynamicResource Fg.Muted}" HorizontalAlignment="Center"
                                            VerticalAlignment="Bottom" Margin="0,0,0,9" FontSize="12"
-                                           Text="모니터를 누르면 이 배치를 고칠 수 있어요 · 창을 우클릭하면 그 창 설정" />
+                                           Text="모니터를 누르면 이 배치를 고칠 수 있어요" />
                                 <Border x:Name="Guide" Background="{DynamicResource Guide.Overlay}" CornerRadius="10" Visibility="Collapsed">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="440">
                                         <TextBlock Text="처음 오셨나요? 세 단계면 끝나요." FontSize="20" FontWeight="SemiBold"

@@ -18,9 +18,9 @@ namespace WindowFix;
 /// </summary>
 public partial class FloatingLockButton : Window
 {
-    private const double TabThicknessDip = 22, TabLengthDip = 56, Radius = 9, SliverDip = 6;
+    private const double TabThicknessDip = 22, TabLengthDip = 56, Radius = 9, SliverDip = 8;
     private static readonly Duration Quick = new(TimeSpan.FromMilliseconds(140));
-    private static readonly TimeSpan SlideTime = TimeSpan.FromMilliseconds(220);
+    private static readonly TimeSpan SlideTime = TimeSpan.FromMilliseconds(360);
 
     /// <summary>0 = half tab glued to the edge (flat side), 1 = symmetric rounded rectangle (while dragging).</summary>
     public static readonly DependencyProperty RoundnessProperty = DependencyProperty.Register(
@@ -34,7 +34,8 @@ public partial class FloatingLockButton : Window
     }
 
     private ScreenEdge _edge = ScreenEdge.Right;
-    private EventHandler? _slide;
+    private volatile int _slideVersion; // bumping it cancels a glide in progress
+    private bool _sliding;
     private static readonly TimeSpan ToggleGuard = TimeSpan.FromMilliseconds(400);
 
     private readonly AppHost _host;
@@ -52,8 +53,8 @@ public partial class FloatingLockButton : Window
             long ex = GetWindowLongPtr(Hwnd, GWL_EXSTYLE);
             SetWindowLongPtr(Hwnd, GWL_EXSTYLE, (nint)(ex | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW));
         };
-        MouseEnter += (_, _) => SetExpanded(true);
-        MouseLeave += (_, _) => { if (_slide is null && !_dragging) SetExpanded(ShouldStayOpen); };
+        MouseEnter += (_, _) => { if (!_sliding && !_dragging) SetExpanded(true); };
+        MouseLeave += (_, _) => { if (!_sliding && !_dragging) SetExpanded(ShouldStayOpen); };
         Update(host.Lock.State);
         ApplyCorners();
     }
@@ -82,6 +83,7 @@ public partial class FloatingLockButton : Window
     /// <summary>Sliver (6 DIP) ⇄ full tab, growing out of the edge it's glued to; the padlock fades in with it.</summary>
     private void SetExpanded(bool on, bool animate = true)
     {
+        if (_dragging || _sliding) return; // the tab is free-floating; Place() sizes it after the drop
         double to = on ? TabThicknessDip : SliverDip;
         var prop = VerticalEdge ? WidthProperty : HeightProperty;
         var other = VerticalEdge ? HeightProperty : WidthProperty;
@@ -89,7 +91,10 @@ public partial class FloatingLockButton : Window
         Tab.SetValue(other, double.NaN);
         if (animate)
         {
-            Tab.BeginAnimation(prop, new DoubleAnimation(to, Quick) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+            // Always give a start value: while the size is Auto (NaN) an animation without one throws on every frame.
+            double cur = VerticalEdge ? Tab.ActualWidth : Tab.ActualHeight;
+            if (double.IsNaN(cur) || cur <= 0) cur = SliverDip;
+            Tab.BeginAnimation(prop, new DoubleAnimation(cur, to, Quick) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
             Icon.BeginAnimation(OpacityProperty, new DoubleAnimation(on ? 1 : 0, Quick));
         }
         else
@@ -110,6 +115,21 @@ public partial class FloatingLockButton : Window
         var s = _host.Config.Settings;
         var (len, thick) = TabSize();
         Place(LockButtonPlacement.Resolve(s.LockButtonX, s.LockButtonY, _host.Ws.GetMonitors(), len, thick));
+        Peek(TimeSpan.FromSeconds(2.5));
+    }
+
+    /// <summary>Stay open for a moment, then fold smoothly back into the edge (first show: so the user sees where it
+    /// lives; after a drop: so it visibly settles instead of snapping to a sliver).</summary>
+    private void Peek(TimeSpan hold)
+    {
+        SetExpanded(true);
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = hold };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            if (!IsMouseOver && !_dragging && !_sliding) SetExpanded(ShouldStayOpen);
+        };
+        timer.Start();
     }
 
     private (int Length, int Thickness) TabSize()
@@ -120,12 +140,38 @@ public partial class FloatingLockButton : Window
 
     private void Place(TabRect t)
     {
-        _edge = t.Edge;
-        Tab.HorizontalAlignment = t.Edge switch { ScreenEdge.Left => HorizontalAlignment.Left, ScreenEdge.Right => HorizontalAlignment.Right, _ => HorizontalAlignment.Stretch };
-        Tab.VerticalAlignment = t.Edge switch { ScreenEdge.Top => VerticalAlignment.Top, ScreenEdge.Bottom => VerticalAlignment.Bottom, _ => VerticalAlignment.Stretch };
+        AlignToEdge(t.Edge);
         SetExpanded(IsMouseOver || ShouldStayOpen, animate: false);
         ApplyCorners();
         SetWindowPos(Hwnd, 0, t.X, t.Y, t.Width, t.Height, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+
+    /// <summary>The tab hugs <paramref name="edge"/>: it grows out of / folds into that side.</summary>
+    private void AlignToEdge(ScreenEdge edge)
+    {
+        _edge = edge;
+        Tab.HorizontalAlignment = edge switch { ScreenEdge.Left => HorizontalAlignment.Left, ScreenEdge.Right => HorizontalAlignment.Right, _ => HorizontalAlignment.Stretch };
+        Tab.VerticalAlignment = edge switch { ScreenEdge.Top => VerticalAlignment.Top, ScreenEdge.Bottom => VerticalAlignment.Bottom, _ => VerticalAlignment.Stretch };
+    }
+
+    /// <summary>
+    /// Last part of the glide: flatten against the edge and fold into the sliver while still moving, so the tab slides
+    /// in one continuous motion instead of arriving, stopping, then folding.
+    /// </summary>
+    private void FoldIn(ScreenEdge edge, TimeSpan time)
+    {
+        AlignToEdge(edge);
+        bool open = IsMouseOver || ShouldStayOpen;
+        var prop = VerticalEdge ? WidthProperty : HeightProperty;
+        var other = VerticalEdge ? HeightProperty : WidthProperty;
+        double cur = VerticalEdge ? Tab.ActualWidth : Tab.ActualHeight;
+        if (double.IsNaN(cur) || cur <= 0) cur = TabThicknessDip;
+        Tab.BeginAnimation(other, null);
+        Tab.SetValue(other, double.NaN);
+        var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+        Tab.BeginAnimation(prop, new DoubleAnimation(cur, open ? TabThicknessDip : SliverDip, time) { EasingFunction = ease });
+        Icon.BeginAnimation(OpacityProperty, new DoubleAnimation(open ? 1 : 0, time));
+        BeginAnimation(RoundnessProperty, new DoubleAnimation(0, time) { EasingFunction = ease });
     }
 
     private void ApplyCorners()
@@ -140,25 +186,49 @@ public partial class FloatingLockButton : Window
 
 
     /// <summary>Glide from where the tab was dropped to its snapped spot, then flatten the side touching the edge.</summary>
+    /// <summary>The fold-in follows the glide right away (never overlapping it: both at once made the moves arrive in clumps).</summary>
+    private static readonly TimeSpan FoldTime = TimeSpan.FromMilliseconds(170);
+
+    /// <summary>
+    /// Glide to the snapped spot. Runs on its own thread paced by the compositor (DwmFlush = once per screen refresh),
+    /// not by WPF's Rendering event, which fires in bursts and gaps and made the glide stutter. Only moves the window
+    /// (posted, no repaint), so it costs next to nothing; the fold-in and the save run back on the UI thread.
+    /// </summary>
     private void SlideTo(TabRect target, Action done)
     {
         GetWindowRect(Hwnd, out var r);
         var from = new TabRect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top, target.Edge);
         _edge = target.Edge; // still fully round (Roundness = 1) while gliding
-        var clock = Stopwatch.StartNew();
-        if (_slide is not null) CompositionTarget.Rendering -= _slide;
-        _slide = (_, _) =>
+        var hwnd = Hwnd;
+        bool sameSize = from.Width == target.Width && from.Height == target.Height;
+        uint flags = SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS | (sameSize ? SWP_NOSIZE : 0);
+        int version = ++_slideVersion;
+        _sliding = true;
+        var thread = new Thread(() =>
         {
-            double t = clock.Elapsed.TotalMilliseconds / SlideTime.TotalMilliseconds;
-            var step = LockButtonPlacement.Interpolate(from, target, t);
-            SetWindowPos(Hwnd, 0, step.X, step.Y, step.Width, step.Height, SWP_NOZORDER | SWP_NOACTIVATE);
-            if (t < 1) return;
-            CompositionTarget.Rendering -= _slide;
-            _slide = null;
-            done();
-        };
-        CompositionTarget.Rendering += _slide;
+            var clock = Stopwatch.StartNew();
+            while (version == _slideVersion)
+            {
+                if (DwmFlush() != 0) Thread.Sleep(8); // no compositor sync available: ~120 Hz fallback
+                double t = clock.Elapsed.TotalMilliseconds / SlideTime.TotalMilliseconds;
+                var step = LockButtonPlacement.Interpolate(from, target, t);
+                SetWindowPos(hwnd, 0, step.X, step.Y, step.Width, step.Height, flags);
+                if (t >= 1) break;
+            }
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (version != _slideVersion) return;
+                _sliding = false;
+                SetWindowPos(hwnd, 0, target.X, target.Y, target.Width, target.Height, SWP_NOZORDER | SWP_NOACTIVATE);
+                FoldIn(target.Edge, FoldTime);
+                done();
+            });
+        }) { IsBackground = true, Name = "LockTabGlide" };
+        thread.Start();
     }
+
+    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+    private static extern int DwmFlush();
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
@@ -175,6 +245,8 @@ public partial class FloatingLockButton : Window
 
         _downAt = null;
         ReleaseMouseCapture();
+        _slideVersion++; // a new drag cancels a glide still running
+        _sliding = false;
         _dragging = true;
         Tab.HorizontalAlignment = HorizontalAlignment.Stretch;
         Tab.VerticalAlignment = VerticalAlignment.Stretch;
@@ -206,12 +278,13 @@ public partial class FloatingLockButton : Window
         var t = LockButtonPlacement.Snap((r.Left + r.Right) / 2, (r.Top + r.Bottom) / 2, _host.Ws.GetMonitors(), len, thick);
         SlideTo(t, () =>
         {
-            _dragging = false;
-            AnimateRoundness(0); // settle: flat against the edge again
-            Place(t);
+            _dragging = false; // already flattened and folding in (FoldIn), so no size reset here
             _host.Config.Settings.LockButtonX = t.CenterX;
             _host.Config.Settings.LockButtonY = t.CenterY;
-            _host.SaveConfig();
+            // save (disk flush + main window refresh) only after the fold-in has played, so it can't cause a hitch
+            var saveLater = new System.Windows.Threading.DispatcherTimer { Interval = FoldTime + TimeSpan.FromMilliseconds(80) };
+            saveLater.Tick += (_, _) => { saveLater.Stop(); _host.SaveConfig(); };
+            saveLater.Start();
         });
     }
 }

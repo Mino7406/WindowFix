@@ -103,6 +103,7 @@ public sealed class MonitorPreview : FrameworkElement
     private sealed class MonitorVisual
     {
         public required string Path { get; init; }
+        public required ContainerVisual Group { get; init; }
         public required Rect Rect { get; init; }
         public required ScaleTransform Scale { get; init; }
         public required TranslateTransform Lift { get; init; }
@@ -159,8 +160,17 @@ public sealed class MonitorPreview : FrameworkElement
             }
             group.Children.Add(dv);
             _children.Add(group);
-            _groups.Add(new MonitorVisual { Path = m.DevicePath, Rect = r, Scale = sc, Lift = lift, Outline = outline, Shadow = shadow });
+            _groups.Add(new MonitorVisual { Path = m.DevicePath, Group = group, Rect = r, Scale = sc, Lift = lift, Outline = outline, Shadow = shadow });
         }
+        BringToFront(_groups.FirstOrDefault(g => g.Path == _hoverPath));
+    }
+
+    /// <summary>The lifted monitor grows a little; draw it last so its edge isn't hidden under the monitor next to it.</summary>
+    private void BringToFront(MonitorVisual? g)
+    {
+        if (g is null || _children.Count == 0 || ReferenceEquals(_children[^1], g.Group)) return;
+        _children.Remove(g.Group);
+        _children.Add(g.Group);
     }
 
     private void DrawTiles(DrawingContext dc, MonitorInfo monitor, Func<PixelRect, Rect> map, double ppd)
@@ -239,6 +249,7 @@ public sealed class MonitorPreview : FrameworkElement
     private void SetHover(string? path)
     {
         _hoverPath = path;
+        BringToFront(_groups.FirstOrDefault(g => g.Path == path));
         foreach (var g in _groups)
         {
             bool on = g.Path == path;

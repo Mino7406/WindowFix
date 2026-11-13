@@ -12,6 +12,9 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
     private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(300);
 
     private readonly List<nint> _hooks = [];
+    // Location changes fire for every mouse-cursor move system-wide; listen only in the processes that own a locked
+    // window so WindowFix stays asleep while the user just uses the PC.
+    private readonly Dictionary<uint, nint> _locationHooks = [];
     private readonly HashSet<nint> _dragging = [];
     private readonly Dictionary<nint, PendingEval> _pending = [];
     private WinEventProc? _proc; // kept in a field so the GC never collects the callback
@@ -31,13 +34,38 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
         _hooks.Add(SetWinEventHook(EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZEEND, 0, _proc, 0, 0, flags));
         _hooks.Add(SetWinEventHook(EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZEEND, 0, _proc, 0, 0, flags));
         _hooks.Add(SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_SHOW, 0, _proc, 0, 0, flags));
-        _hooks.Add(SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, 0, _proc, 0, 0, flags));
+        SyncLocationHooks();
+    }
+
+    /// <summary>One location hook per process that owns a bound window; called whenever the bound set may change.</summary>
+    private void SyncLocationHooks()
+    {
+        var tracker = _tracker;
+        var want = new HashSet<uint>();
+        if (tracker is not null)
+            foreach (var hwnd in tracker.Bound.Keys)
+                if (GetWindowThreadProcessId(hwnd, out uint pid) != 0 && pid != 0) want.Add(pid);
+
+        foreach (var pid in _locationHooks.Keys.Where(p => !want.Contains(p)).ToList())
+        {
+            UnhookWinEvent(_locationHooks[pid]);
+            _locationHooks.Remove(pid);
+        }
+        if (_proc is null) return;
+        foreach (var pid in want.Where(p => !_locationHooks.ContainsKey(p)))
+        {
+            var h = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, 0, _proc, pid, 0,
+                WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+            if (h != 0) _locationHooks[pid] = h;
+        }
     }
 
     public void Stop()
     {
         foreach (var h in _hooks) if (h != 0) UnhookWinEvent(h);
         _hooks.Clear();
+        foreach (var h in _locationHooks.Values) UnhookWinEvent(h);
+        _locationHooks.Clear();
         foreach (var p in _pending.Values) p.Timer.Dispose();
         _pending.Clear();
         _dragging.Clear();
@@ -109,14 +137,17 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
         var d = shown ? tracker.OnShown(info) : tracker.OnLocationChanged(info, userInitiated);
         if (d.Action is LockAction.Revert or LockAction.PlaceNew)
             ws.SetPlacement(hwnd, d.Target, d.Maximize);
+        if (shown) SyncLocationHooks(); // a newly shown window may now be bound (maybe in a new process)
         else if (d.RetryAfter is { } wait)
             Schedule(hwnd, shown: false, wait + TimeSpan.FromMilliseconds(100)); // look again once the cooldown ends
     }
 
     private void Forget(nint hwnd)
     {
+        bool wasBound = _tracker?.Bound.ContainsKey(hwnd) == true;
         _tracker?.OnDestroyed(hwnd);
         _dragging.Remove(hwnd);
+        if (wasBound) SyncLocationHooks();
         if (_pending.Remove(hwnd, out var p)) p.Timer.Dispose();
     }
 

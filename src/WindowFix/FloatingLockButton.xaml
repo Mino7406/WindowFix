@@ -5,7 +5,9 @@
         WindowStyle="None" AllowsTransparency="True" Background="{x:Null}" ResizeMode="NoResize"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False" Cursor="Hand">
     <!-- Flat sliver glued to the edge; widens into a tab with a padlock on hover / while paused. -->
-    <Border x:Name="Tab" CornerRadius="9,0,0,9" Width="6" HorizontalAlignment="Right">
+    <!-- White rim so the sliver stands out on any wallpaper (a plain blue bar vanished on blue ones).
+         No shadow effect: in a transparent window effects are drawn on the CPU every frame and made the glide stutter. -->
+    <Border x:Name="Tab" CornerRadius="9,0,0,9" Width="8" HorizontalAlignment="Right" BorderBrush="#F2FFFFFF" BorderThickness="1.5">
         <Border.Background>
             <SolidColorBrush x:Name="TabFill" Color="#3B5BDB" />
         </Border.Background>

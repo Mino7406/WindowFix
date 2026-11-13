@@ -161,16 +161,42 @@ public sealed class AppHost : IDisposable
         ConfigChanged?.Invoke();
     }
 
+    private (bool Admin, bool Boot)? _syncedStartup;
+    private readonly object _syncLock = new();
+
+    /// <summary>
+    /// Keeps "start with Windows" registered. Only when what it depends on changed (always-admin, boot needed) — every
+    /// config save (a tab drag, a layout click) used to launch schtasks.exe twice and freeze the UI while it ran — and
+    /// off the UI thread, since registry and schtasks calls can take a moment.
+    /// </summary>
     private void SyncRunKey()
     {
-        try
+        var s = Config.Settings;
+        var state = (s.AlwaysAdmin, s.LockEnabled || s.StartupPresetId is not null);
+        if (_syncedStartup == state) return;
+        _syncedStartup = state;
+        var snapshot = new AppSettings
         {
-            StartupRegistration.Sync(Config.Settings, Environment.ProcessPath!, new RegistryRunKey(), new SchtasksElevatedTasks(), Ws.SelfElevated);
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException)
+            AlwaysAdmin = s.AlwaysAdmin,
+            LockEnabled = s.LockEnabled,
+            StartupPresetId = s.StartupPresetId,
+        };
+        bool elevated = Ws.SelfElevated;
+        var exe = Environment.ProcessPath!;
+        Task.Run(() =>
         {
-            // The app still works; it just won't start with Windows.
-        }
+            lock (_syncLock) // one at a time, in order
+            {
+                try
+                {
+                    StartupRegistration.Sync(snapshot, exe, new RegistryRunKey(), new SchtasksElevatedTasks(), elevated);
+                }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException)
+                {
+                    // The app still works; it just won't start with Windows.
+                }
+            }
+        });
     }
 
     /// <summary>Floating lock button: only while the lock is on and the setting allows it. Tray icon: per setting.</summary>
@@ -205,6 +231,13 @@ public sealed class AppHost : IDisposable
         _main.Show();
         if (_main.WindowState == WindowState.Minimized) _main.WindowState = WindowState.Normal;
         _main.Activate();
+    }
+
+    /// <summary>Open the main window straight on the settings page (tray menu).</summary>
+    public void ShowSettings()
+    {
+        ShowMainWindow();
+        _main!.OpenSettings();
     }
 
     private void OnMainWindowClosing(object? sender, CancelEventArgs e)

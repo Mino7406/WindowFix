@@ -17,6 +17,8 @@ internal sealed class ThemedMenuRenderer : Forms.ToolStripProfessionalRenderer
     }
 
     private Color Fg => _dark ? Color.FromArgb(0xE7, 0xE9, 0xEE) : Color.FromArgb(0x1D, 0x21, 0x29);
+    /// <summary>Red for "끝내기": the light pink only reads on the dark menu; the light menu needs a deep red.</summary>
+    private Color Danger => _dark ? Color.FromArgb(0xFF, 0x87, 0x87) : Color.FromArgb(0xC9, 0x2A, 0x2A);
     private Color Hover => _dark ? Color.FromArgb(0x2A, 0x2D, 0x35) : Color.FromArgb(0xF1, 0xF3, 0xF6);
 
     protected override void OnRenderMenuItemBackground(Forms.ToolStripItemRenderEventArgs e)
@@ -31,7 +33,7 @@ internal sealed class ThemedMenuRenderer : Forms.ToolStripProfessionalRenderer
 
     protected override void OnRenderItemText(Forms.ToolStripItemTextRenderEventArgs e)
     {
-        e.TextColor = e.Item.Enabled ? (e.Item.Tag as string == "danger" ? Color.FromArgb(0xFF, 0x87, 0x87) : Fg)
+        e.TextColor = e.Item.Enabled ? (e.Item.Tag as string == "danger" ? Danger : Fg)
                                      : Color.FromArgb(0x80, Fg);
         base.OnRenderItemText(e);
     }
