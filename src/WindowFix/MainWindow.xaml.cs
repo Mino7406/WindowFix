@@ -31,6 +31,8 @@ public partial class MainWindow : Window
         _host.ConfigChanged += () => Dispatcher.Invoke(RefreshAll);
         _host.Lock.StateChanged += _ => Dispatcher.Invoke(RefreshToggles);
         _host.Applied += (p, r) => Dispatcher.Invoke(() => ShowReport(p, r));
+        _host.UpdateAvailable += r => Dispatcher.Invoke(() => ShowUpdate(r));
+        if (_host.PendingUpdate is { } pending) ShowUpdate(pending);
         System.ComponentModel.DependencyPropertyDescriptor
             .FromProperty(TextBlock.TextProperty, typeof(TextBlock))
             .AddValueChanged(StatusText, (_, _) => OnStatusChanged());
@@ -122,6 +124,8 @@ public partial class MainWindow : Window
         ThemeLight.IsChecked = s.Theme == Core.Model.ThemeMode.Light;
         ThemeDark.IsChecked = s.Theme == Core.Model.ThemeMode.Dark;
         AdminCheck.IsChecked = s.AlwaysAdmin;
+        UpdateCheck.IsChecked = s.AutoUpdateCheck;
+        if (string.IsNullOrEmpty(VersionText.Text)) VersionText.Text = $"현재 버전 {Updater.CurrentText}";
         AdminState.Text = _host.IsElevated ? "● 지금 관리자 권한으로 실행 중이에요." : "지금은 일반 권한으로 실행 중이에요.";
         if (_host.IsElevated) AdminBanner.Visibility = Visibility.Collapsed;
     }
@@ -389,6 +393,58 @@ public partial class MainWindow : Window
         StatusText.Text = saved
             ? $"✔ '{p.Name}' 배치를 고쳤어요" + (pausedHere ? ". 다시 고정했어요." : ".")
             : pausedHere ? "수정을 취소했어요. 창들을 원래 자리로 되돌리고 다시 고정했어요." : "수정을 취소했어요.";
+    }
+
+    // ---------- updates ----------
+
+    private Core.Update.ReleaseInfo? _shownUpdate;
+
+    private void ShowUpdate(Core.Update.ReleaseInfo r)
+    {
+        _shownUpdate = r;
+        UpdateTitle.Text = $"새 버전 {r.Tag}이(가) 나왔어요 (지금 {Updater.CurrentText})";
+        UpdateNowButton.Content = r.AssetUrl is null ? "다운로드 페이지 열기" : "업데이트";
+        UpdateBanner.Visibility = Visibility.Visible;
+    }
+
+    private async void OnUpdateNow(object sender, RoutedEventArgs e)
+    {
+        if (_shownUpdate is not { } r) return;
+        if (r.AssetUrl is null) { Updater.OpenPage(r.PageUrl); return; }
+        UpdateNowButton.IsEnabled = UpdateSkipButton.IsEnabled = false;
+        UpdateNowButton.Content = "내려받는 중…";
+        StatusText.Text = $"{r.Tag}을(를) 내려받고 있어요. 끝나면 WindowFix가 잠깐 꺼졌다가 새 버전으로 다시 켜져요.";
+        if (await _host.InstallUpdateAsync(r)) return;
+        UpdateNowButton.IsEnabled = UpdateSkipButton.IsEnabled = true;
+        UpdateNowButton.Content = "업데이트";
+        StatusText.Text = "업데이트를 내려받지 못했어요. 인터넷 연결을 확인하거나, 다운로드 페이지에서 직접 받아 주세요.";
+        Updater.OpenPage(r.PageUrl);
+    }
+
+    private void OnUpdateLater(object sender, RoutedEventArgs e) => UpdateBanner.Visibility = Visibility.Collapsed;
+
+    private void OnUpdateSkip(object sender, RoutedEventArgs e)
+    {
+        if (_shownUpdate is { } r) _host.SkipUpdate(r);
+        UpdateBanner.Visibility = Visibility.Collapsed;
+        StatusText.Text = "이 버전은 건너뛸게요. 다음 새 버전이 나오면 다시 알려 드릴게요.";
+    }
+
+    private void OnUpdateCheckClick(object sender, RoutedEventArgs e)
+    {
+        _host.Config.Settings.AutoUpdateCheck = UpdateCheck.IsChecked == true;
+        _host.SaveConfig();
+    }
+
+    private async void OnCheckUpdateNow(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        VersionText.Text = "확인하는 중…";
+        var r = await _host.CheckForUpdateAsync(manual: true);
+        CheckUpdateButton.IsEnabled = true;
+        VersionText.Text = r is null
+            ? $"현재 버전 {Updater.CurrentText} · 최신 버전이에요"
+            : $"현재 버전 {Updater.CurrentText} · 새 버전 {r.Tag}이(가) 있어요";
     }
 
     private void OnRestartElevated(object sender, RoutedEventArgs e)

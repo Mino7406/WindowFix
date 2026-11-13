@@ -73,12 +73,14 @@ public sealed class AppHost : IDisposable
         if (Config.Settings.AlwaysAdmin && !Ws.SelfElevated && !args.Contains(RestartedArg) && TryElevate(args))
             return;
         SyncRunKey(); // the exe may have been moved since the last save
+        Updater.CleanupOld();
         ThemeManager.Init(() => Config.Settings.Theme);
         _tray = new Tray.TrayIcon(this);
         Lock.StateChanged += _ => UpdateOverlays();
         ConfigChanged += UpdateOverlays;
         UpdateOverlays();
 
+        StartUpdateChecks(boot: args.Contains(StartupRegistration.StartupArg, StringComparer.OrdinalIgnoreCase));
         if (args.Contains(StartupRegistration.StartupArg, StringComparer.OrdinalIgnoreCase))
         {
             _ = RunStartupAsync();
@@ -281,6 +283,56 @@ public sealed class AppHost : IDisposable
     }
 
     public const string RestartedArg = "--restarted";
+
+    // ---------- updates (GitHub releases) ----------
+
+    public event Action<Core.Update.ReleaseInfo>? UpdateAvailable;
+    public Core.Update.ReleaseInfo? PendingUpdate { get; private set; }
+    private System.Windows.Threading.DispatcherTimer? _updateTimer;
+
+    /// <summary>First check shortly after start (a minute later at boot, to stay out of the way), then every 6h; the 24h rule gates real requests.</summary>
+    private void StartUpdateChecks(bool boot)
+    {
+        var first = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(boot ? 60 : 3) };
+        first.Tick += async (_, _) => { first.Stop(); await CheckForUpdateAsync(manual: false); };
+        first.Start();
+        _updateTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromHours(6) };
+        _updateTimer.Tick += async (_, _) => await CheckForUpdateAsync(manual: false);
+        _updateTimer.Start();
+    }
+
+    /// <summary>Manual checks ignore the daily limit and a skipped version.</summary>
+    public async Task<Core.Update.ReleaseInfo?> CheckForUpdateAsync(bool manual)
+    {
+        var s = Config.Settings;
+        if (!manual && (!s.AutoUpdateCheck || !Core.Update.UpdateChecker.ShouldCheck(s.LastUpdateCheckUtc, DateTime.UtcNow)))
+            return PendingUpdate;
+        var r = await Updater.CheckAsync(manual ? null : s.SkippedUpdateTag);
+        s.LastUpdateCheckUtc = DateTime.UtcNow;
+        SaveConfig();
+        if (r is not null)
+        {
+            PendingUpdate = r;
+            UpdateAvailable?.Invoke(r);
+            _tray?.ShowBalloon($"WindowFix {r.Tag}이(가) 나왔어요", "눌러서 업데이트할 수 있어요.");
+        }
+        return r;
+    }
+
+    /// <summary>Download and hand over to the swap step; the app exits and comes back as the new version.</summary>
+    public async Task<bool> InstallUpdateAsync(Core.Update.ReleaseInfo r)
+    {
+        if (!await Updater.InstallAsync(r)) return false;
+        Shutdown();
+        return true;
+    }
+
+    public void SkipUpdate(Core.Update.ReleaseInfo r)
+    {
+        Config.Settings.SkippedUpdateTag = r.Tag;
+        PendingUpdate = null;
+        SaveConfig();
+    }
 
     public bool IsElevated => Ws.SelfElevated;
 

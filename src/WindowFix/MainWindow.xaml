@@ -142,6 +142,22 @@
                         </Border>
                     </WrapPanel>
 
+                    <Border x:Name="UpdateBanner" DockPanel.Dock="Top" CornerRadius="10" BorderThickness="1" Padding="14,10" Margin="0,0,0,12"
+                            Background="{DynamicResource Bg.Selected}" BorderBrush="{DynamicResource Accent}" Visibility="Collapsed">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="UpdateSkipButton" Content="이 버전 건너뛰기" Click="OnUpdateSkip" />
+                                <Button Content="나중에" Click="OnUpdateLater" />
+                                <Button x:Name="UpdateNowButton" Content="업데이트" Click="OnUpdateNow" Style="{StaticResource Primary}" Margin="0" />
+                            </StackPanel>
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock x:Name="UpdateTitle" FontWeight="SemiBold" Foreground="{DynamicResource Fg.Selected}" />
+                                <TextBlock Style="{StaticResource Hint}" Foreground="{DynamicResource Fg.Secondary}"
+                                           Text="누르면 새 버전을 내려받아 WindowFix를 다시 켜요. 저장한 배치와 설정은 그대로예요." />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
                     <Border x:Name="AdminBanner" DockPanel.Dock="Top" CornerRadius="10" BorderThickness="1" Padding="14,10" Margin="0,0,0,12"
                             Background="{DynamicResource Lock.Paused.Bg}" BorderBrush="{DynamicResource Lock.Paused.Border}" Visibility="Collapsed">
                         <DockPanel>
@@ -360,6 +376,21 @@
                                         <TextBlock Style="{StaticResource Hint}" Text="시스템 트레이에 WindowFix 아이콘을 보여 줘요.&#10;백그라운드에서 실행 중이어도 간단하게 조작할 수 있어요." />
                                     </StackPanel>
                                 </CheckBox>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Margin="0,12,0,12">
+                            <StackPanel>
+                                <CheckBox x:Name="UpdateCheck" Click="OnUpdateCheckClick" Margin="0">
+                                    <StackPanel>
+                                        <TextBlock Text="업데이트 자동 확인" FontWeight="SemiBold" />
+                                        <TextBlock Style="{StaticResource Hint}" Text="켤 때와 하루에 한 번 새 버전이 나왔는지 확인해요." />
+                                    </StackPanel>
+                                </CheckBox>
+                                <StackPanel Orientation="Horizontal" Margin="46,10,0,0">
+                                    <Button x:Name="CheckUpdateButton" Content="지금 확인" Click="OnCheckUpdateNow" />
+                                    <TextBlock x:Name="VersionText" Style="{StaticResource Hint}" VerticalAlignment="Center" />
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </StackPanel>

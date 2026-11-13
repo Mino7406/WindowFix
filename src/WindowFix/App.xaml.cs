@@ -10,6 +10,12 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (e.Args.Length >= 3 && e.Args[0] == Core.Update.UpdateSwap.ApplyArg)
+        {
+            Updater.RunSwap(e.Args[1], e.Args[2]);
+            Shutdown();
+            return;
+        }
         DispatcherUnhandledException += OnUnhandled;
         TaskScheduler.UnobservedTaskException += (_, args) =>
         {
