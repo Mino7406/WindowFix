@@ -40,7 +40,7 @@ public sealed class StartupSequenceTests
         var report = await Sequence().RunAsync(new Preset { Windows = [Entry("Discord.exe"), Entry("KakaoTalk.exe")] }, default);
 
         Assert.Equal(4, _ws.Placements.Count);
-        Assert.Equal(TimeSpan.FromSeconds(5), _clock.UtcNow - start);
+        Assert.Equal(TimeSpan.FromSeconds(3), _clock.UtcNow - start); // only the 3s settle re-apply
         Assert.All(report.Results, r => Assert.Equal(ApplyOutcome.Applied, r.Outcome));
     }
 
@@ -53,7 +53,7 @@ public sealed class StartupSequenceTests
         var report = await Sequence().RunAsync(new Preset { Windows = [Entry("Discord.exe")] }, default);
 
         Assert.Equal(ApplyOutcome.Applied, Assert.Single(report.Results).Outcome);
-        Assert.Equal(TimeSpan.FromSeconds(3 * 2 + 5), _clock.UtcNow - start);
+        Assert.Equal(TimeSpan.FromSeconds(3 * 0.5 + 3), _clock.UtcNow - start); // fast 0.5s polling at boot
         Assert.Equal(2, _ws.Placements.Count); // found on retry, then the 5s re-apply
     }
 
@@ -66,7 +66,20 @@ public sealed class StartupSequenceTests
 
         Assert.Equal(ApplyOutcome.NotFound, Assert.Single(report.Results).Outcome);
         var elapsed = (_clock.UtcNow - start).TotalSeconds;
-        Assert.InRange(elapsed, 180 + 5, 182 + 5); // 3 min of retries, then the 5s re-apply
+        Assert.InRange(elapsed, 180 + 3, 182 + 3); // 3 min of retries, then the 3s re-apply
+    }
+
+    [Fact]
+    public async Task Startup_PollsEveryHalfSecondFor20s_ThenEvery2s()
+    {
+        var gaps = new List<double>();
+        var seq = new StartupSequence(new PresetApplier(_ws), _clock, ts => { gaps.Add(ts.TotalSeconds); _clock.Advance(ts); return Task.CompletedTask; });
+
+        await seq.RunAsync(new Preset { Windows = [Entry("Discord.exe")] }, default);
+
+        Assert.Equal(40, gaps.Count(g => g == 0.5));
+        Assert.All(gaps.Skip(40).SkipLast(1), g => Assert.Equal(2, g));
+        Assert.Equal(3, gaps[^1]);
     }
 
     [Fact]

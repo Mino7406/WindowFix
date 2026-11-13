@@ -10,9 +10,12 @@ namespace WindowFix.Core.Startup;
 /// </summary>
 public sealed class StartupSequence(PresetApplier applier, IClock clock, Func<TimeSpan, Task> delay)
 {
+    /// <summary>Right after logon apps appear within seconds: look every 0.5s for the first 20s, then every 2s.</summary>
+    public static readonly TimeSpan FastRetryInterval = TimeSpan.FromSeconds(0.5);
+    public static readonly TimeSpan FastPhase = TimeSpan.FromSeconds(20);
     public static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(2);
     public static readonly TimeSpan MaxWait = TimeSpan.FromMinutes(3);
-    public static readonly TimeSpan SettleDelay = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan SettleDelay = TimeSpan.FromSeconds(3);
 
     public async Task<ApplyReport> RunAsync(Preset p, CancellationToken ct)
     {
@@ -23,7 +26,7 @@ public sealed class StartupSequence(PresetApplier applier, IClock clock, Func<Ti
         while (!new ApplyReport(results.Values.ToList()).AllDone && clock.UtcNow - start < MaxWait)
         {
             ct.ThrowIfCancellationRequested();
-            await delay(RetryInterval);
+            await delay(clock.UtcNow - start < FastPhase ? FastRetryInterval : RetryInterval);
             ct.ThrowIfCancellationRequested();
 
             var pending = results.Values

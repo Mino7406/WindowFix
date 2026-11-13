@@ -93,6 +93,9 @@ public sealed class AppHost : IDisposable
     {
         var s = Config.Settings;
         var preset = Config.Presets.FirstOrDefault(p => p.Id == (s.StartupPresetId ?? s.CurrentPresetId));
+        // Arm the lock first: windows that show up while the boot restore is still waiting are placed the moment
+        // they appear (event-driven), instead of only after every app in the layout has opened.
+        if (s.LockEnabled && Lock.State == LockState.Off) Lock.SetEnabled(true);
         if (preset is not null)
         {
             _startupRunning = true;
@@ -105,6 +108,7 @@ public sealed class AppHost : IDisposable
                     SaveConfig();
                 }
                 Applied?.Invoke(preset, report);
+                RefreshLock(); // re-bind with the final positions (apps often resize themselves while loading)
             }
             catch (Exception ex)
             {

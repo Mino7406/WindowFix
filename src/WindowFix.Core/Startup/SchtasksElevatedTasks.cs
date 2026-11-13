@@ -8,7 +8,7 @@ public sealed class SchtasksElevatedTasks : IElevatedTasks
     public bool Exists(string name) => Schtasks($"/Query /TN \"{name}\"") == 0;
 
     public void CreateLogonTask(string name, string exe, string args) =>
-        Schtasks($"/Create /F /TN \"{name}\" /TR \"\\\"{exe}\\\" {args}\" /SC ONLOGON /RL HIGHEST /IT /DELAY 0000:10");
+        Schtasks($"/Create /F /TN \"{name}\" /TR \"\\\"{exe}\\\" {args}\" /SC ONLOGON /RL HIGHEST /IT");
 
     public void CreateOnDemandTask(string name, string exe) =>
         Schtasks($"/Create /F /TN \"{name}\" /TR \"\\\"{exe}\\\" --restarted\" /SC ONCE /ST 00:00 /RL HIGHEST /IT");
