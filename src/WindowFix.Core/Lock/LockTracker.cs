@@ -11,6 +11,9 @@ public readonly record struct LockDecision(LockAction Action, PixelRect Target, 
 {
     public TimeSpan? RetryAfter { get; init; }
 
+    /// <summary>The entry wants the window always on top (re-asserted whenever it is placed).</summary>
+    public bool TopMost { get; init; }
+
     public static LockDecision None { get; } = new(LockAction.None, default, false);
 }
 
@@ -47,7 +50,7 @@ public sealed class LockTracker(Preset preset, Func<IReadOnlyList<MonitorInfo>> 
         if (target is null) return LockDecision.None;
 
         _bound[w.Handle] = entry.Id;
-        return new LockDecision(LockAction.PlaceNew, target.Value, entry.Maximized);
+        return new LockDecision(LockAction.PlaceNew, target.Value, entry.Maximized) { TopMost = entry.AlwaysOnTop };
     }
 
     /// <param name="userInitiated">The user dragged the frame (move/size loop ended). Always snap back and don't spend the
@@ -55,22 +58,25 @@ public sealed class LockTracker(Preset preset, Func<IReadOnlyList<MonitorInfo>> 
     public LockDecision OnLocationChanged(WindowInfo w, bool userInitiated = false)
     {
         if (!_bound.TryGetValue(w.Handle, out var id)) return LockDecision.None;
-        if (w.IsMinimized) return LockDecision.None;
-
         var entry = preset.Windows.FirstOrDefault(e => e.Id == id);
         if (entry is null) return LockDecision.None;
+        if (w.IsMinimized && !entry.NoMinimize) return LockDecision.None; // minimizing is allowed unless the entry forbids it
 
         var target = TargetOf(entry);
         if (target is null) return LockDecision.None;
+        if (w.IsMinimized) return new LockDecision(LockAction.Revert, target.Value, entry.Maximized) { TopMost = entry.AlwaysOnTop };
 
         bool inPlace = entry.Maximized ? w.IsMaximized : !w.IsMaximized && w.Rect == target.Value;
         if (inPlace) return LockDecision.None;
 
-        if (userInitiated) return new LockDecision(LockAction.Revert, target.Value, entry.Maximized);
+        if (userInitiated) return new LockDecision(LockAction.Revert, target.Value, entry.Maximized) { TopMost = entry.AlwaysOnTop };
         return policy.ShouldRevert(w.Handle)
-            ? new LockDecision(LockAction.Revert, target.Value, entry.Maximized)
+            ? new LockDecision(LockAction.Revert, target.Value, entry.Maximized) { TopMost = entry.AlwaysOnTop }
             : LockDecision.None with { RetryAfter = policy.CooldownRemaining(w.Handle) };
     }
+
+    /// <summary>Whether this entry currently has a live window.</summary>
+    public bool IsBound(Guid entryId) => _bound.ContainsValue(entryId);
 
     public void OnDestroyed(nint hwnd)
     {

@@ -99,6 +99,10 @@ public sealed class Win32WindowSystem : IWindowSystem
         return true;
     }
 
+    public bool SetTopMost(nint hwnd, bool on) =>
+        IsWindow(hwnd) && SetWindowPos(hwnd, on ? -1 : -2, 0, 0, 0, 0,
+            0x0001 /*NOSIZE*/ | 0x0002 /*NOMOVE*/ | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+
     public bool Show(nint hwnd)
     {
         if (!IsWindow(hwnd)) return false;

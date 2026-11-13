@@ -66,6 +66,14 @@ internal sealed class FakeWindowSystem : IWindowSystem
 
     public bool SelfElevated { get; set; }
 
+    public List<nint> TopMost { get; } = [];
+
+    public bool SetTopMost(nint hwnd, bool on)
+    {
+        if (on) TopMost.Add(hwnd); else TopMost.Remove(hwnd);
+        return true;
+    }
+
     public void Launch(string path, string? args)
     {
         Launches.Add((path, args));

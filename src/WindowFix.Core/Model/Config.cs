@@ -29,6 +29,15 @@ public sealed class WindowEntry
     public string? LaunchPath { get; set; }
     public string? LaunchArgs { get; set; }
     public string DisplayName { get; set; } = "";
+
+    /// <summary>While locked, a minimize is undone (window stays visible).</summary>
+    public bool NoMinimize { get; set; }
+
+    /// <summary>Keep this window above normal windows.</summary>
+    public bool AlwaysOnTop { get; set; }
+
+    /// <summary>While locked, start the app again if it closes or crashes (rate-limited).</summary>
+    public bool RelaunchIfClosed { get; set; }
 }
 
 public sealed class Preset
@@ -61,6 +70,9 @@ public sealed class AppSettings
 
     /// <summary>Look for a new GitHub release at start and once a day.</summary>
     public bool AutoUpdateCheck { get; set; } = true;
+
+    /// <summary>After the boot restore, show a short tray notification with the result.</summary>
+    public bool BootNotify { get; set; } = true;
     public DateTime? LastUpdateCheckUtc { get; set; }
     /// <summary>Release tag the user chose to skip ("이 버전 건너뛰기").</summary>
     public string? SkippedUpdateTag { get; set; }

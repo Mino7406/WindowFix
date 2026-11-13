@@ -14,6 +14,9 @@ public interface IWindowSystem
 
     bool Show(nint hwnd);
 
+    /// <summary>Put the window in (or take it out of) the always-on-top band.</summary>
+    bool SetTopMost(nint hwnd, bool on);
+
     /// <summary>Whether WindowFix itself runs elevated (admin).</summary>
     bool SelfElevated { get; }
     bool IsRunning(string exeName);

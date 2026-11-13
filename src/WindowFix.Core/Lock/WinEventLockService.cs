@@ -32,7 +32,7 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
         _proc = OnEvent;
         const uint flags = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;
         _hooks.Add(SetWinEventHook(EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZEEND, 0, _proc, 0, 0, flags));
-        _hooks.Add(SetWinEventHook(EVENT_SYSTEM_MINIMIZEEND, EVENT_SYSTEM_MINIMIZEEND, 0, _proc, 0, 0, flags));
+        _hooks.Add(SetWinEventHook(EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND, 0, _proc, 0, 0, flags));
         _hooks.Add(SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_SHOW, 0, _proc, 0, 0, flags));
         SyncLocationHooks();
     }
@@ -89,6 +89,7 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
                 if (_dragging.Remove(hwnd)) Evaluate(hwnd, shown: false, userInitiated: true);
                 break;
             case EVENT_OBJECT_LOCATIONCHANGE:
+            case EVENT_SYSTEM_MINIMIZESTART:
             case EVENT_SYSTEM_MINIMIZEEND:
                 if (bound && !_dragging.Contains(hwnd)) Schedule(hwnd, shown: false);
                 break;
@@ -136,7 +137,10 @@ public sealed class WinEventLockService(IWindowSystem ws) : IDisposable
 
         var d = shown ? tracker.OnShown(info) : tracker.OnLocationChanged(info, userInitiated);
         if (d.Action is LockAction.Revert or LockAction.PlaceNew)
+        {
             ws.SetPlacement(hwnd, d.Target, d.Maximize);
+            if (d.TopMost) ws.SetTopMost(hwnd, true);
+        }
         if (shown) SyncLocationHooks(); // a newly shown window may now be bound (maybe in a new process)
         if (d.RetryAfter is { } wait)
             Schedule(hwnd, shown: false, wait + TimeSpan.FromMilliseconds(100)); // look again once the cooldown ends

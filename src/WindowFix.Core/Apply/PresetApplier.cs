@@ -67,7 +67,9 @@ public sealed class PresetApplier(IWindowSystem ws)
             }
 
             taken.Add(w.Handle);
-            var outcome = ws.SetPlacement(w.Handle, TargetRect(e, monitor), e.Maximized) ? ApplyOutcome.Applied
+            bool placed = ws.SetPlacement(w.Handle, TargetRect(e, monitor), e.Maximized);
+            if (placed && e.AlwaysOnTop) ws.SetTopMost(w.Handle, true);
+            var outcome = placed ? ApplyOutcome.Applied
                 : w.IsElevated && !ws.SelfElevated ? ApplyOutcome.NeedsAdmin // Windows blocks normal apps from moving admin windows
                 : ApplyOutcome.Failed;
             results.Add(new(e.Id, outcome, w.Handle));
