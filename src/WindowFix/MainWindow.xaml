@@ -7,21 +7,19 @@
         Background="{DynamicResource Bg.Window}" Foreground="{DynamicResource Fg.Primary}"
         Icon="pack://application:,,,/Assets/WindowFix.ico">
     <Window.Resources>
+        <!-- Kept as a resource: event handlers inside a Style setter's ContextMenu crash XAML loading. -->
+        <ContextMenu x:Key="LayoutMenu" x:Shared="False">
+            <MenuItem Header="이 배치로 맞추기" Click="OnMenuApply" />
+            <Separator />
+            <MenuItem Header="이름 바꾸기" Click="OnMenuRename" />
+            <MenuItem Header="삭제" Click="OnMenuDelete" />
+        </ContextMenu>
         <Style x:Key="LayoutItem" TargetType="ListBoxItem">
             <Setter Property="Foreground" Value="{DynamicResource Fg.Secondary}" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <EventSetter Event="PreviewMouseLeftButtonUp" Handler="OnLayoutItemClick" />
-            <Setter Property="ContextMenu">
-                <Setter.Value>
-                    <ContextMenu>
-                        <MenuItem Header="이 배치로 맞추기" Click="OnMenuApply" />
-                        <Separator />
-                        <MenuItem Header="이름 바꾸기" Click="OnMenuRename" />
-                        <MenuItem Header="삭제" Click="OnMenuDelete" />
-                    </ContextMenu>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="ContextMenu" Value="{StaticResource LayoutMenu}" />
             <Setter Property="ToolTip" Value="우클릭하면 이름 바꾸기·삭제를 할 수 있어요." />
             <Setter Property="Template">
                 <Setter.Value>
@@ -73,7 +71,7 @@
                     <Image Source="pack://application:,,,/Assets/WindowFix.ico" Width="22" Height="22" Margin="0,0,8,0" />
                     <TextBlock Text="WindowFix" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
                 </StackPanel>
-                <RadioButton x:Name="SettingsNav" DockPanel.Dock="Bottom" GroupName="Nav" Style="{StaticResource NavItem}" Click="OnSettingsNav">
+                <RadioButton x:Name="SettingsNav" DockPanel.Dock="Bottom" GroupName="Nav" Style="{StaticResource NavItem}" Checked="OnSettingsNav">
                     <TextBlock Text="⚙  설정" />
                 </RadioButton>
                 <Button DockPanel.Dock="Top" Content="+ 새 배치 생성" Click="OnSaveCurrent" Style="{StaticResource Primary}"
