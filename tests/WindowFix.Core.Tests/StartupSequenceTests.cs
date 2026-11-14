@@ -91,6 +91,32 @@ public sealed class StartupSequenceTests
     }
 
     [Fact]
+    public async Task Startup_AppStartsByItselfWithinGrace_IsNotLaunchedAgain()
+    {
+        // At logon Discord/KakaoTalk start themselves a few seconds later: launching them at once doubled them up.
+        _onDelay = n => { if (n == 10) _ws.Add(Win(1, "Discord.exe", new PixelRect(0, 0, 10, 10))); }; // ~5s in
+
+        var report = await Sequence().RunAsync(new Preset { Windows = [Entry("Discord.exe", launch: true)] }, default);
+
+        Assert.Empty(_ws.Launches);
+        Assert.Equal(ApplyOutcome.Applied, Assert.Single(report.Results).Outcome);
+    }
+
+    [Fact]
+    public async Task Startup_StillMissingAfterGrace_IsLaunchedThen()
+    {
+        var start = _clock.UtcNow;
+        TimeSpan? launchedAt = null;
+        _onDelay = _ => { if (launchedAt is null && _ws.Launches.Count > 0) launchedAt = _clock.UtcNow - start; };
+
+        await Sequence().RunAsync(new Preset { Windows = [Entry("Discord.exe", launch: true)] }, default);
+
+        Assert.Single(_ws.Launches);
+        Assert.NotNull(launchedAt);
+        Assert.InRange(launchedAt!.Value.TotalSeconds, StartupSequence.LaunchGrace.TotalSeconds, StartupSequence.LaunchGrace.TotalSeconds + 1);
+    }
+
+    [Fact]
     public async Task Startup_HiddenAtFirstThenAppears_IsShownAndPlaced()
     {
         _ws.Running.Add("KakaoTalk.exe");

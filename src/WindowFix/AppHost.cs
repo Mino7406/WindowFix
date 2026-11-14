@@ -344,6 +344,8 @@ public sealed class AppHost : IDisposable
     private LockTracker? _tracker;
     private System.Windows.Threading.DispatcherTimer? _relaunchTimer;
     private readonly RelaunchPolicy _relaunch = new(SystemClock.Instance);
+    /// <summary>Entries whose window was locked at least once: only those count as "closed" when it goes away.</summary>
+    private readonly HashSet<Guid> _seenBound = [];
 
     /// <summary>Every 5s while locked: an entry marked "relaunch" whose app is gone gets started again (rate-limited).</summary>
     private void EnsureRelaunchWatch()
@@ -355,7 +357,9 @@ public sealed class AppHost : IDisposable
             if (Lock.State != LockState.Active || _tracker is not { } t || IsEditing) return;
             foreach (var e in t.Preset.Windows)
             {
-                if (!e.RelaunchIfClosed || string.IsNullOrEmpty(e.LaunchPath) || t.IsBound(e.Id)) continue;
+                if (t.IsBound(e.Id)) { _seenBound.Add(e.Id); continue; }
+                // never seen yet (e.g. still starting at boot): the boot restore launches it if needed, not this
+                if (!e.RelaunchIfClosed || string.IsNullOrEmpty(e.LaunchPath) || !_seenBound.Contains(e.Id)) continue;
                 if (Ws.IsRunning(e.Match.ExeName) || !_relaunch.MayRelaunch(e.Id)) continue;
                 try { Ws.Launch(e.LaunchPath, e.LaunchArgs); } // the lock places the new window when it shows
                 catch (Exception ex) { App.LogError(ex); }

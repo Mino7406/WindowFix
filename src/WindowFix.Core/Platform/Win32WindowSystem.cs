@@ -131,13 +131,26 @@ public sealed class Win32WindowSystem : IWindowSystem
         return procs.Length > 0;
     }
 
+    /// <summary>
+    /// Starts the app on a background thread. ShellExecute can block for a long time (right after logon, while
+    /// Explorer is still starting) — on the UI thread that froze WindowFix ("응답 없음"). A missing file is still
+    /// reported at once.
+    /// </summary>
     public void Launch(string path, string? args)
     {
-        using var _ = Process.Start(new ProcessStartInfo(path, args ?? "")
+        if (!File.Exists(path)) throw new FileNotFoundException("App not found", path);
+        var psi = new ProcessStartInfo(path, args ?? "")
         {
             UseShellExecute = true,
             WorkingDirectory = Path.GetDirectoryName(path) ?? "",
-        });
+        };
+        var t = new Thread(() =>
+        {
+            try { using var _ = Process.Start(psi); }
+            catch (Exception) { /* nothing to show it on; the window simply never appears ("못 찾음") */ }
+        }) { IsBackground = true, Name = "WindowFix launch" };
+        t.SetApartmentState(ApartmentState.STA); // ShellExecute expects an STA thread
+        t.Start();
     }
 
     // ---- helpers ----
