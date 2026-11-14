@@ -10,7 +10,7 @@
     <AssemblyName>WindowFix</AssemblyName>
     <RootNamespace>WindowFix</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <ApplicationIcon>Assets\WindowFix.ico</ApplicationIcon>
     <Product>WindowFix</Product>
     <!-- WFO0003 targets WinForms apps; this is a WPF app whose DPI mode must come from the manifest. -->
