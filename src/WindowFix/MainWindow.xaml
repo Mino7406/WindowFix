@@ -338,9 +338,6 @@
                                         <TextBlock Style="{StaticResource Hint}" Text="컴퓨터를 켜면 창들이 늦게 떠도 기다렸다가 제자리에 놓아 줘요." />
                                     </StackPanel>
                                 </CheckBox>
-                                <CheckBox x:Name="BootNotifyCheck" Click="OnBootNotifyClick" Margin="46,10,0,0">
-                                    <TextBlock Text="시작 알림 받기" ToolTip="켤 때 배치를 맞추면, 맞춘 창과 못 찾은 창을 알림으로 알려 줘요." />
-                                </CheckBox>
                                 <TextBlock x:Name="StartupPickLabel" Text="어떤 배치로 맞출까요?" Style="{StaticResource Hint}" Margin="46,10,0,4" />
                                 <Border x:Name="StartupPickBox" Background="{DynamicResource Bg.Stage}" CornerRadius="8" Padding="2" Margin="46,0,0,0" HorizontalAlignment="Left">
                                     <ItemsControl x:Name="StartupPresetList">
@@ -377,10 +374,16 @@
                                         <TextBlock Style="{StaticResource Hint}" Text="창 고정 중일 때 화면 가장자리에 위젯이 생겨요." />
                                     </StackPanel>
                                 </CheckBox>
-                                <CheckBox x:Name="TrayCheck" Click="OnTrayClick" Margin="0">
+                                <CheckBox x:Name="TrayCheck" Click="OnTrayClick" Margin="0,0,0,12">
                                     <StackPanel>
                                         <TextBlock Text="시스템 트레이에 표시" FontWeight="SemiBold" />
                                         <TextBlock Style="{StaticResource Hint}" Text="시스템 트레이에 WindowFix 아이콘을 보여 줘요.&#10;백그라운드에서 실행 중이어도 간단하게 조작할 수 있어요." />
+                                    </StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="NotifyCheck" Click="OnNotifyClick" Margin="0">
+                                    <StackPanel>
+                                        <TextBlock Text="Windows 알림 받기" FontWeight="SemiBold" />
+                                        <TextBlock Style="{StaticResource Hint}" Text="컴퓨터를 켠 뒤 배치를 맞춘 결과와 새 버전 소식을&#10;화면 오른쪽 아래 Windows 알림으로 알려 줘요." />
                                     </StackPanel>
                                 </CheckBox>
                             </StackPanel>

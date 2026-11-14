@@ -71,7 +71,7 @@ public sealed class AppSettings
     /// <summary>Look for a new GitHub release at start and once a day.</summary>
     public bool AutoUpdateCheck { get; set; } = true;
 
-    /// <summary>After the boot restore, show a short tray notification with the result.</summary>
+    /// <summary>"Windows 알림 받기": tray notifications (boot restore result, new version). Name kept for saved configs.</summary>
     public bool BootNotify { get; set; } = true;
     public DateTime? LastUpdateCheckUtc { get; set; }
     /// <summary>Release tag the user chose to skip ("이 버전 건너뛰기").</summary>

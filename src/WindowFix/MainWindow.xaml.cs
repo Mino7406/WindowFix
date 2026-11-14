@@ -124,8 +124,7 @@ public partial class MainWindow : Window
         ThemeLight.IsChecked = s.Theme == Core.Model.ThemeMode.Light;
         ThemeDark.IsChecked = s.Theme == Core.Model.ThemeMode.Dark;
         AdminCheck.IsChecked = s.AlwaysAdmin;
-        BootNotifyCheck.IsChecked = s.BootNotify;
-        BootNotifyCheck.Visibility = StartupCheck.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        NotifyCheck.IsChecked = s.BootNotify;
         UpdateCheck.IsChecked = s.AutoUpdateCheck;
         if (string.IsNullOrEmpty(VersionText.Text)) VersionText.Text = $"현재 버전 {Updater.CurrentText}";
         AdminState.Inlines.Clear();
@@ -443,9 +442,9 @@ public partial class MainWindow : Window
         StatusText.Text = "이 버전은 건너뛸게요. 다음 새 버전이 나오면 다시 알려 드릴게요.";
     }
 
-    private void OnBootNotifyClick(object sender, RoutedEventArgs e)
+    private void OnNotifyClick(object sender, RoutedEventArgs e)
     {
-        _host.Config.Settings.BootNotify = BootNotifyCheck.IsChecked == true;
+        _host.Config.Settings.BootNotify = NotifyCheck.IsChecked == true;
         _host.SaveConfig();
     }
 

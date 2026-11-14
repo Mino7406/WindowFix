@@ -81,6 +81,8 @@
 | [MainWindow.xaml:354](../src/WindowFix/MainWindow.xaml#L354) | 글자 | 창 고정 중일 때 모니터 가장자리에 작은 탭이 붙어요. 누르면 잠깐 풀고, 다시 누르면 원래 자리로 돌아가요. |
 | [MainWindow.xaml:359](../src/WindowFix/MainWindow.xaml#L359) | 글자 | 시스템 트레이에 표시 |
 | [MainWindow.xaml:360](../src/WindowFix/MainWindow.xaml#L360) | 글자 | 시계 옆에 WindowFix 아이콘을 보여 줘요. 숨겨도 WindowFix를 다시 실행하면 이 창이 열려요. |
+| MainWindow.xaml (설정) | 글자 | Windows 알림 받기 |
+| MainWindow.xaml (설정) | 글자 | 컴퓨터를 켠 뒤 배치를 맞춘 결과와 새 버전 소식을 화면 오른쪽 아래 Windows 알림으로 알려 줘요. |
 | [MainWindow.xaml.cs:44](../src/WindowFix/MainWindow.xaml.cs#L44) | 코드 | 단, |
 | [MainWindow.xaml.cs:44](../src/WindowFix/MainWindow.xaml.cs#L44) | 코드 | 못 |
 | [MainWindow.xaml.cs:44](../src/WindowFix/MainWindow.xaml.cs#L44) | 코드 | 취소 |
