@@ -73,6 +73,41 @@ public sealed class AppHost : IDisposable
         }
         if (Config.Settings.AlwaysAdmin && !Ws.SelfElevated && !args.Contains(RestartedArg) && TryElevate(args))
             return;
+        bool boot = args.Contains(StartupRegistration.StartupArg, StringComparer.OrdinalIgnoreCase);
+        App.Trace($"start boot={boot} elevated={Ws.SelfElevated}");
+        if (boot)
+        {
+            _ = BootAsync();
+            return;
+        }
+
+        FinishStartup(boot: false);
+        ShowMainWindow();
+        if (Config.Settings.LockEnabled) Lock.SetEnabled(true);
+    }
+
+    /// <summary>Started by Windows at logon: wait for the taskbar first (see <see cref="ShellReady"/>), then go.</summary>
+    private async Task BootAsync()
+    {
+        try
+        {
+            bool ready = await ShellReady.WaitAsync(TimeSpan.FromSeconds(90));
+            App.Trace($"shell ready={ready}");
+            FinishStartup(boot: true);
+            App.Trace("ui ready");
+            await RunStartupAsync();
+            App.Trace("boot restore done");
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            App.Trace("boot failed: " + ex.GetType().Name);
+        }
+    }
+
+    /// <summary>Everything that touches the shell (tray icon, edge widget, theme hooks) — after the taskbar is ready at boot.</summary>
+    private void FinishStartup(bool boot)
+    {
         SyncRunKey(); // the exe may have been moved since the last save
         Updater.CleanupOld();
         ThemeManager.Init(() => Config.Settings.Theme);
@@ -80,16 +115,7 @@ public sealed class AppHost : IDisposable
         Lock.StateChanged += _ => UpdateOverlays();
         ConfigChanged += UpdateOverlays;
         UpdateOverlays();
-
-        StartUpdateChecks(boot: args.Contains(StartupRegistration.StartupArg, StringComparer.OrdinalIgnoreCase));
-        if (args.Contains(StartupRegistration.StartupArg, StringComparer.OrdinalIgnoreCase))
-        {
-            _ = RunStartupAsync();
-            return;
-        }
-
-        ShowMainWindow();
-        if (Config.Settings.LockEnabled) Lock.SetEnabled(true);
+        StartUpdateChecks(boot);
     }
 
     private async Task RunStartupAsync()

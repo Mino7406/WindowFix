@@ -69,6 +69,23 @@ public partial class App : Application
         }
     }
 
+    /// <summary>Startup milestones with timestamps (%APPDATA%\WindowFix\startup.log), so a stall shows where it stopped.</summary>
+    public static void Trace(string message)
+    {
+        try
+        {
+            var dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "WindowFix");
+            System.IO.Directory.CreateDirectory(dir);
+            var path = System.IO.Path.Combine(dir, "startup.log");
+            if (System.IO.File.Exists(path) && new System.IO.FileInfo(path).Length > 256 * 1024) System.IO.File.Delete(path);
+            System.IO.File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] pid {Environment.ProcessId} {message}\n");
+        }
+        catch (Exception)
+        {
+            // never let diagnostics break startup
+        }
+    }
+
     public static void LogError(Exception ex)
     {
         try
