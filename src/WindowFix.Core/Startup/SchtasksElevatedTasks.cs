@@ -17,6 +17,38 @@ public sealed class SchtasksElevatedTasks : IElevatedTasks
 
     public bool Run(string name) => Schtasks($"/Run /TN \"{name}\"") == 0;
 
+    /// <summary>
+    /// Through the Task Scheduler COM API: schtasks.exe /XML writes in the console code page when redirected, which
+    /// would mangle non-ASCII paths (a Korean user folder name).
+    /// </summary>
+    public string? GetExe(string name)
+    {
+        object? service = null;
+        try
+        {
+            var type = Type.GetTypeFromProgID("Schedule.Service");
+            if (type is null) return null;
+            service = Activator.CreateInstance(type);
+            dynamic s = service!;
+            s.Connect();
+            dynamic task = s.GetFolder("\\").GetTask(name);
+            foreach (dynamic action in task.Definition.Actions)
+            {
+                if ((int)action.Type == 0) return (string)action.Path; // TASK_ACTION_EXEC
+            }
+            return null;
+        }
+        catch (Exception)
+        {
+            return null; // missing task (COMException) or Task Scheduler unavailable
+        }
+        finally
+        {
+            if (service is not null && System.Runtime.InteropServices.Marshal.IsComObject(service))
+                System.Runtime.InteropServices.Marshal.ReleaseComObject(service);
+        }
+    }
+
     private static int Schtasks(string args)
     {
         try

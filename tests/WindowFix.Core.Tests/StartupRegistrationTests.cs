@@ -21,6 +21,8 @@ public sealed class StartupRegistrationTests
         public void CreateOnDemandTask(string name, string exe) => Tasks[name] = $"demand:{exe}";
         public void Delete(string name) => Tasks.Remove(name);
         public bool Run(string name) => Tasks.ContainsKey(name);
+        public string? GetExe(string name) =>
+            Tasks.TryGetValue(name, out var v) ? v[(v.IndexOf(':') + 1)..].Split(" --")[0] : null;
     }
 
     private const string Exe = @"C:\Tools\WindowFix.exe";
@@ -112,5 +114,32 @@ public sealed class StartupRegistrationTests
         StartupRegistration.Sync(new AppSettings { LockEnabled = true }, @"C:\Program Files\Window Fix\WindowFix.exe", key);
 
         Assert.Equal("\"C:\\Program Files\\Window Fix\\WindowFix.exe\" --startup", key.Value);
+    }
+
+    [Fact]
+    public void TaskRunsExe_SameExe_QuotesAndCaseIgnored()
+    {
+        var tasks = new FakeTasks();
+        tasks.Tasks[StartupRegistration.OpenTask] = "demand:\"C:\\TOOLS\\windowfix.exe\"";
+
+        Assert.True(StartupRegistration.TaskRunsExe(tasks, StartupRegistration.OpenTask, Exe));
+    }
+
+    [Fact]
+    public void TaskRunsExe_TaskPointsAtAnotherCopy_False()
+    {
+        // an old build elsewhere registered the task; running it would start that old copy instead of this one
+        var tasks = new FakeTasks();
+        StartupRegistration.Sync(new AppSettings { AlwaysAdmin = true, LockEnabled = true }, @"C:\Old\WindowFix.exe",
+            new FakeRunKey(), tasks, selfElevated: true);
+
+        Assert.False(StartupRegistration.TaskRunsExe(tasks, StartupRegistration.OpenTask, Exe));
+        Assert.False(StartupRegistration.TaskRunsExe(tasks, StartupRegistration.StartupTask, Exe));
+    }
+
+    [Fact]
+    public void TaskRunsExe_MissingTask_False()
+    {
+        Assert.False(StartupRegistration.TaskRunsExe(new FakeTasks(), StartupRegistration.OpenTask, Exe));
     }
 }

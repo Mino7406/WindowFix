@@ -443,7 +443,11 @@ public sealed class AppHost : IDisposable
         _instance?.Dispose(); // let the elevated instance take over the single-instance lock
         _instance = null;
         var tasks = new SchtasksElevatedTasks();
-        if (tasks.Run(startup ? StartupRegistration.StartupTask : StartupRegistration.OpenTask) || StartElevated(startup))
+        var task = startup ? StartupRegistration.StartupTask : StartupRegistration.OpenTask;
+        // The task may point at another copy of WindowFix (an older build elsewhere on this PC): then elevate this exe
+        // with UAC instead, and the elevated instance re-registers the tasks with this path.
+        bool viaTask = StartupRegistration.TaskRunsExe(tasks, task, Environment.ProcessPath!) && tasks.Run(task);
+        if (viaTask || StartElevated(startup))
         {
             _app.Shutdown();
             return true;

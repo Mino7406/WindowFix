@@ -43,6 +43,8 @@ public interface IElevatedTasks
     void CreateOnDemandTask(string name, string exe);
     void Delete(string name);
     bool Run(string name);
+    /// <summary>The exe the task starts, or null when the task is missing or can't be read. Needs no admin rights.</summary>
+    string? GetExe(string name);
 }
 
 public static class StartupRegistration
@@ -50,6 +52,28 @@ public static class StartupRegistration
     public const string StartupArg = "--startup";
     public const string StartupTask = "WindowFix 시작 (관리자)";
     public const string OpenTask = "WindowFix 열기 (관리자)";
+
+    /// <summary>
+    /// True when task <paramref name="name"/> starts this very exe. With two copies on one PC (an old build and a new
+    /// one) the tasks point at whichever copy last ran elevated; running such a task from the other copy would start
+    /// the wrong one, so the caller must elevate itself instead.
+    /// </summary>
+    public static bool TaskRunsExe(IElevatedTasks tasks, string name, string exePath)
+    {
+        var taskExe = tasks.GetExe(name);
+        return taskExe is not null && SamePath(taskExe, exePath);
+    }
+
+    private static bool SamePath(string a, string b)
+    {
+        static string Norm(string p)
+        {
+            p = p.Trim().Trim('"');
+            try { p = Path.GetFullPath(p); } catch (Exception) { /* keep as is */ }
+            return p;
+        }
+        return string.Equals(Norm(a), Norm(b), StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>Runs at Windows start when the lock is on (it needs a live process) or a startup preset is set.</summary>
     public static void Sync(AppSettings s, string exePath, IRunKey key) => Sync(s, exePath, key, null, selfElevated: false);
