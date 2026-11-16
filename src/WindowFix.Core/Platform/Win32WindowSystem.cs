@@ -88,12 +88,20 @@ public sealed class Win32WindowSystem : IWindowSystem
         if (!IsWindow(hwnd)) return false;
         if (IsIconic(hwnd) || IsZoomed(hwnd)) ShowCmd(hwnd, SW_RESTORE);
 
-        bool ok = SetWindowPos(hwnd, 0, rect.X, rect.Y, rect.Width, rect.Height,
-            SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
-        if (!ok) return false;
+        // Games such as MapleStory only switch their render resolution at the end of a resize loop (WM_EXITSIZEMOVE)
+        // and snap back otherwise, so a size change is framed like a user's border drag. The synchronous probe also
+        // tells us the window isn't hung, which makes the non-async SetWindowPos inside the frame safe.
+        bool resizing = GetWindowRect(hwnd, out var cur)
+                        && (cur.Right - cur.Left != rect.Width || cur.Bottom - cur.Top != rect.Height);
+        bool framed = resizing && SendMessageTimeout(hwnd, WM_ENTERSIZEMOVE, 0, 0, SMTO_ABORTIFHUNG, 500, out _) != 0;
+        uint flags = SWP_NOZORDER | SWP_NOACTIVATE | (framed ? 0 : SWP_ASYNCWINDOWPOS);
+
+        bool ok = SetWindowPos(hwnd, 0, rect.X, rect.Y, rect.Width, rect.Height, flags);
         // Moving onto a monitor with a different scale makes per-monitor-aware apps (Discord) rescale themselves on
         // WM_DPICHANGED; a second identical request lands the size exactly (same approach as PowerToys FancyZones).
-        SetWindowPos(hwnd, 0, rect.X, rect.Y, rect.Width, rect.Height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+        if (ok) SetWindowPos(hwnd, 0, rect.X, rect.Y, rect.Width, rect.Height, flags);
+        if (framed) SendMessageTimeout(hwnd, WM_EXITSIZEMOVE, 0, 0, SMTO_ABORTIFHUNG, 500, out _);
+        if (!ok) return false;
 
         if (maximize) ShowCmd(hwnd, SW_MAXIMIZE);
         return true;
