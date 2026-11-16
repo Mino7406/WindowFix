@@ -403,7 +403,8 @@ public sealed class AppHost : IDisposable
         {
             PendingUpdate = r;
             UpdateAvailable?.Invoke(r);
-            if (s.BootNotify) _tray?.ShowBalloon($"WindowFix {r.Tag}이(가) 나왔어요", "눌러서 업데이트할 수 있어요.");
+            // a manual check already answers on screen, so only automatic checks show the notification
+            if (s.BootNotify && !manual) _tray?.ShowBalloon($"WindowFix {r.Tag}이(가) 나왔어요", "눌러서 업데이트할 수 있어요.");
         }
         return r;
     }

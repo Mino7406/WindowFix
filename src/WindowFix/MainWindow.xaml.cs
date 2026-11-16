@@ -415,20 +415,24 @@ public partial class MainWindow : Window
     {
         _shownUpdate = r;
         UpdateTitle.Text = $"새 버전 {r.Tag}이(가) 나왔어요 (지금 {Updater.CurrentText})";
-        UpdateNowButton.Content = r.AssetUrl is null ? "다운로드 페이지 열기" : "업데이트";
+        UpdateNowButton.Content = CheckUpdateButton.Content = r.AssetUrl is null ? "다운로드 페이지 열기" : "업데이트";
+        VersionText.Text = $"현재 버전 {Updater.CurrentText} · 새 버전 {r.Tag}이(가) 있어요";
         UpdateBanner.Visibility = Visibility.Visible;
     }
 
-    private async void OnUpdateNow(object sender, RoutedEventArgs e)
+    private async void OnUpdateNow(object sender, RoutedEventArgs e) => await InstallShownUpdateAsync();
+
+    /// <summary>Shared by the layout-page banner and the settings page button.</summary>
+    private async Task InstallShownUpdateAsync()
     {
         if (_shownUpdate is not { } r) return;
         if (r.AssetUrl is null) { Updater.OpenPage(r.PageUrl); return; }
-        UpdateNowButton.IsEnabled = UpdateSkipButton.IsEnabled = false;
-        UpdateNowButton.Content = "내려받는 중…";
+        UpdateNowButton.IsEnabled = UpdateSkipButton.IsEnabled = CheckUpdateButton.IsEnabled = false;
+        UpdateNowButton.Content = CheckUpdateButton.Content = "내려받는 중…";
         StatusText.Text = $"{r.Tag}을(를) 내려받고 있어요. 끝나면 WindowFix가 잠깐 꺼졌다가 새 버전으로 다시 켜져요.";
         if (await _host.InstallUpdateAsync(r)) return;
-        UpdateNowButton.IsEnabled = UpdateSkipButton.IsEnabled = true;
-        UpdateNowButton.Content = "업데이트";
+        UpdateNowButton.IsEnabled = UpdateSkipButton.IsEnabled = CheckUpdateButton.IsEnabled = true;
+        UpdateNowButton.Content = CheckUpdateButton.Content = "업데이트";
         StatusText.Text = "업데이트를 내려받지 못했어요. 인터넷 연결을 확인하거나, 다운로드 페이지에서 직접 받아 주세요.";
         Updater.OpenPage(r.PageUrl);
     }
@@ -439,6 +443,8 @@ public partial class MainWindow : Window
     {
         if (_shownUpdate is { } r) _host.SkipUpdate(r);
         UpdateBanner.Visibility = Visibility.Collapsed;
+        CheckUpdateButton.Content = "지금 확인";
+        VersionText.Text = $"현재 버전 {Updater.CurrentText}";
         StatusText.Text = "이 버전은 건너뛸게요. 다음 새 버전이 나오면 다시 알려 드릴게요.";
     }
 
@@ -454,15 +460,24 @@ public partial class MainWindow : Window
         _host.SaveConfig();
     }
 
+    /// <summary>"지금 확인"; once a new version is found the same button turns into "업데이트" and installs it.</summary>
     private async void OnCheckUpdateNow(object sender, RoutedEventArgs e)
     {
+        if (_shownUpdate is not null && CheckUpdateButton.Content as string != "지금 확인")
+        {
+            await InstallShownUpdateAsync();
+            return;
+        }
         CheckUpdateButton.IsEnabled = false;
         VersionText.Text = "확인하는 중…";
         var r = await _host.CheckForUpdateAsync(manual: true);
         CheckUpdateButton.IsEnabled = true;
-        VersionText.Text = r is null
-            ? $"현재 버전 {Updater.CurrentText} · 최신 버전이에요"
-            : $"현재 버전 {Updater.CurrentText} · 새 버전 {r.Tag}이(가) 있어요";
+        if (r is null)
+        {
+            VersionText.Text = $"현재 버전 {Updater.CurrentText} · 최신 버전이에요";
+            return;
+        }
+        ShowUpdate(r); // already raised via UpdateAvailable; repeated so the button state never depends on event order
     }
 
     private void OnRestartElevated(object sender, RoutedEventArgs e)
