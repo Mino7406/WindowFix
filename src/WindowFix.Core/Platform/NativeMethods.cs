@@ -17,11 +17,6 @@ internal static class NativeMethods
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;
     public const uint SWP_ASYNCWINDOWPOS = 0x4000;
-    public const uint WM_SIZING = 0x0214;
-    public const uint WM_ENTERSIZEMOVE = 0x0231;
-    public const uint WM_EXITSIZEMOVE = 0x0232;
-    public const nint WMSZ_BOTTOMRIGHT = 8;
-    public const uint SMTO_ABORTIFHUNG = 0x0002;
     public const int DWMWA_CLOAKED = 14;
     public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
     public const uint MONITORINFOF_PRIMARY = 1;
@@ -132,8 +127,6 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern bool GetWindowRect(nint hwnd, out RECT rect);
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(nint hwnd, out uint pid);
     [DllImport("user32.dll", SetLastError = true)] public static extern bool SetWindowPos(nint hwnd, nint after, int x, int y, int cx, int cy, uint flags);
-    [DllImport("user32.dll")] public static extern nint SendMessageTimeout(nint hwnd, uint msg, nint wParam, nint lParam, uint flags, uint timeoutMs, out nint result);
-    [DllImport("user32.dll")] public static extern nint SendMessageTimeout(nint hwnd, uint msg, nint wParam, ref RECT lParam, uint flags, uint timeoutMs, out nint result);
     [DllImport("user32.dll")] public static extern bool ShowWindow(nint hwnd, int cmd);
     [DllImport("user32.dll")] public static extern bool ShowWindowAsync(nint hwnd, int cmd);
     [DllImport("user32.dll")] public static extern bool EnumDisplayMonitors(nint hdc, nint clip, MonitorEnumProc cb, nint data);
