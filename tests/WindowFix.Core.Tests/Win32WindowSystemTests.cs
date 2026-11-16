@@ -122,6 +122,75 @@ public sealed class Win32WindowSystemTests
     }
 
     [Fact]
+    public void SetPlacement_Resize_PlaysBorderDragSequenceAndKeepsAppAdjustedSize()
+    {
+        // Games (MapleStory) switch resolution only inside ENTERSIZEMOVE → SIZING → EXITSIZEMOVE and may snap the size.
+        using var ready = new ManualResetEventSlim();
+        SnapForm? form = null;
+        var ui = new Thread(() =>
+        {
+            form = new SnapForm();
+            form.Shown += (_, _) => ready.Set();
+            Application.Run(form);
+        });
+        ui.SetApartmentState(ApartmentState.STA);
+        ui.Start();
+        try
+        {
+            Assert.True(ready.Wait(5000));
+            nint hwnd = (nint)form!.Invoke(() => form.Handle);
+
+            Assert.True(_ws.SetPlacement(hwnd, new PixelRect(150, 160, 734, 577), maximize: false));
+
+            Assert.Equal(new PixelRect(150, 160, 700, 500), _ws.GetWindow(hwnd)?.Rect);
+            Assert.Equal(["enter", "sizing 734x577", "exit"], form.Seen);
+
+            // a move without a size change stays a plain move
+            form.Seen.Clear();
+            Assert.True(_ws.SetPlacement(hwnd, new PixelRect(180, 190, 700, 500), maximize: false));
+            Thread.Sleep(200);
+            Assert.Empty(form.Seen);
+        }
+        finally
+        {
+            form?.Invoke(() => form.Close());
+            ui.Join(5000);
+        }
+    }
+
+    /// <summary>Snaps any size to multiples of 100 in WM_SIZING, like a game picking a supported resolution.</summary>
+    private sealed class SnapForm : Form
+    {
+        public List<string> Seen { get; } = [];
+
+        public SnapForm()
+        {
+            StartPosition = FormStartPosition.Manual;
+            Location = new System.Drawing.Point(60, 60);
+            Size = new System.Drawing.Size(400, 300);
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            switch (m.Msg)
+            {
+                case 0x0231: Seen.Add("enter"); break;
+                case 0x0232: Seen.Add("exit"); break;
+                case 0x0214:
+                    var r = System.Runtime.InteropServices.Marshal.PtrToStructure<System.Drawing.Rectangle>(m.LParam);
+                    // RECT is left/top/right/bottom; read through Rectangle's fields as raw ints
+                    int l = r.X, t = r.Y, w = r.Width - l, h = r.Height - t;
+                    Seen.Add($"sizing {w}x{h}");
+                    var snapped = new System.Drawing.Rectangle(l, t, l + w / 100 * 100, t + h / 100 * 100);
+                    System.Runtime.InteropServices.Marshal.StructureToPtr(snapped, m.LParam, false);
+                    m.Result = 1;
+                    return;
+            }
+            base.WndProc(ref m);
+        }
+    }
+
+    [Fact]
     public void GetWindow_InvalidHandle_ReturnsNull()
     {
         Assert.Null(_ws.GetWindow(unchecked((nint)0x7FFF_FFF0)));

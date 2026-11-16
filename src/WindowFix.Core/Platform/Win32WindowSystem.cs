@@ -88,12 +88,29 @@ public sealed class Win32WindowSystem : IWindowSystem
         if (!IsWindow(hwnd)) return false;
         if (IsIconic(hwnd) || IsZoomed(hwnd)) ShowCmd(hwnd, SW_RESTORE);
 
-        bool ok = SetWindowPos(hwnd, 0, rect.X, rect.Y, rect.Width, rect.Height,
-            SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
-        if (!ok) return false;
+        // A size change is played out the way Windows does a border drag: WM_ENTERSIZEMOVE, WM_SIZING (the app may
+        // adjust the rect, e.g. MapleStory snapping to a resolution it supports), the move itself, WM_EXITSIZEMOVE.
+        // Games apply their new resolution only inside that sequence; a bare resize just stretches their picture.
+        // The synchronous probe also proves the window isn't hung, which makes the non-async SetWindowPos safe.
+        bool resizing = GetWindowRect(hwnd, out var cur)
+                        && (cur.Right - cur.Left != rect.Width || cur.Bottom - cur.Top != rect.Height);
+        bool framed = resizing && SendMessageTimeout(hwnd, WM_ENTERSIZEMOVE, 0, 0, SMTO_ABORTIFHUNG, 500, out _) != 0;
+        if (framed)
+        {
+            // Windows copies the RECT across processes for WM_SIZING, like it does during a real drag
+            var r = new RECT { Left = rect.X, Top = rect.Y, Right = rect.Right, Bottom = rect.Bottom };
+            if (SendMessageTimeout(hwnd, WM_SIZING, WMSZ_BOTTOMRIGHT, ref r, SMTO_ABORTIFHUNG, 500, out _) != 0
+                && r.Right > r.Left && r.Bottom > r.Top)
+                rect = new PixelRect(rect.X, rect.Y, r.Right - r.Left, r.Bottom - r.Top); // keep our spot, take its size
+        }
+        uint flags = SWP_NOZORDER | SWP_NOACTIVATE | (framed ? 0 : SWP_ASYNCWINDOWPOS);
+
+        bool ok = SetWindowPos(hwnd, 0, rect.X, rect.Y, rect.Width, rect.Height, flags);
         // Moving onto a monitor with a different scale makes per-monitor-aware apps (Discord) rescale themselves on
         // WM_DPICHANGED; a second identical request lands the size exactly (same approach as PowerToys FancyZones).
-        SetWindowPos(hwnd, 0, rect.X, rect.Y, rect.Width, rect.Height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+        if (ok) SetWindowPos(hwnd, 0, rect.X, rect.Y, rect.Width, rect.Height, flags);
+        if (framed) SendMessageTimeout(hwnd, WM_EXITSIZEMOVE, 0, 0, SMTO_ABORTIFHUNG, 500, out _);
+        if (!ok) return false;
 
         if (maximize) ShowCmd(hwnd, SW_MAXIMIZE);
         return true;
