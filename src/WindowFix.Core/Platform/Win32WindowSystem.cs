@@ -185,13 +185,16 @@ public sealed class Win32WindowSystem : IWindowSystem
             IsElevated: elevCache.TryGetValue(pid, out var el) ? el : elevCache[pid] = IsProcessElevated(pid));
     }
 
+    /// <summary>
+    /// No GetWindowTextLength here: it sends WM_GETTEXTLENGTH to the window, and a not-yet-responding app at logon
+    /// (or a hung one) never answers — that froze WindowFix for good right after boot ("running but nothing opens").
+    /// GetWindowText reads another process's caption directly without sending a message.
+    /// </summary>
     private static string GetText(nint h)
     {
-        int len = GetWindowTextLength(h);
-        if (len <= 0) return "";
-        var sb = new StringBuilder(len + 1);
-        GetWindowText(h, sb, sb.Capacity);
-        return sb.ToString();
+        var sb = new StringBuilder(2048);
+        int n = GetWindowText(h, sb, sb.Capacity);
+        return n <= 0 ? "" : sb.ToString();
     }
 
     private static string GetClass(nint h)
