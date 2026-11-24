@@ -10,6 +10,8 @@ public sealed class Win32WindowSystem : IWindowSystem
 {
     public bool SelfElevated { get; } = TokenIsElevated(GetCurrentProcess()) ?? false;
 
+    private static readonly uint OwnPid = (uint)Environment.ProcessId;
+
     /// <summary>
     /// Elevation of another process. If we can't even read its token (admin or protected process, typical for games
     /// with anti-cheat) while we are not elevated, treat it as elevated: that is exactly the case we can't move.
@@ -172,7 +174,7 @@ public sealed class Win32WindowSystem : IWindowSystem
             Handle: h,
             ExeName: exePath is null ? "" : Path.GetFileName(exePath),
             ExePath: exePath,
-            Title: GetText(h),
+            Title: GetText(h, pid),
             ClassName: GetClass(h),
             Rect: ToPixelRect(r),
             IsVisible: IsWindowVisible(h),
@@ -190,12 +192,25 @@ public sealed class Win32WindowSystem : IWindowSystem
     /// (or a hung one) never answers — that froze WindowFix for good right after boot ("running but nothing opens").
     /// GetWindowText reads another process's caption directly without sending a message.
     /// </summary>
-    private static string GetText(nint h)
+    private static string GetText(nint h, uint pid)
     {
         var sb = new StringBuilder(2048);
+        // …except for windows of OUR OWN process: there GetWindowText does send WM_GETTEXT. Our SystemEvents hidden
+        // window lives on another thread, and when that thread is stuck at boot the plain call froze the UI thread
+        // for good ("running but nothing happens", no "boot restore done"). Ask with a timeout instead.
+        if (pid == OwnPid && GetWindowThreadProcessId(h, out _) != GetCurrentThreadId())
+        {
+            if (SendMessageTimeout(h, WM_GETTEXT, sb.Capacity, sb, SMTO_ABORTIFHUNG, 100, out var len) == 0) return "";
+            return (int)len <= 0 ? "" : sb.ToString(0, Math.Min((int)len, sb.Capacity));
+        }
         int n = GetWindowText(h, sb, sb.Capacity);
         return n <= 0 ? "" : sb.ToString();
     }
+
+    private const uint WM_GETTEXT = 0x000D, SMTO_ABORTIFHUNG = 0x0002;
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern nint SendMessageTimeout(nint hwnd, uint msg, nint wParam, StringBuilder lParam, uint flags, uint timeoutMs, out nint result);
 
     private static string GetClass(nint h)
     {
